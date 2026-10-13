@@ -8,3 +8,4 @@ out/
 *.pem
 npm-debug.log*
 .env*
+server.log

@@ -28,6 +28,10 @@ export default function Navbar({ active = "home" }) {
           <Link href="/shop" className={linkClass("shop")}>
             দোকান
           </Link>
+          {/* Admin link (demo phase — remove or protect in production) */}
+          <Link href="/admin" className={linkClass("admin")}>
+            অ্যাডমিন
+          </Link>
 
           {/* Cart icon with badge → /cart */}
           <Link
