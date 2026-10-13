@@ -1,5 +1,7 @@
 import "./globals.css";
 import { Noto_Sans_Bengali } from "next/font/google";
+import { CartProvider } from "@/context/CartContext";
+import Toast from "@/components/Toast";
 
 const notoSansBengali = Noto_Sans_Bengali({
   subsets: ["bengali"],
@@ -17,7 +19,10 @@ export default function RootLayout({ children }) {
   return (
     <html lang="bn">
       <body className={`${notoSansBengali.variable} font-sans`}>
-        {children}
+        <CartProvider>
+          {children}
+          <Toast />
+        </CartProvider>
       </body>
     </html>
   );

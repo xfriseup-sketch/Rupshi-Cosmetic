@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Navbar from "@/components/Navbar";
 
 const categories = [
   {
@@ -28,33 +29,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-pink-50">
       {/* Navbar */}
-      <nav className="sticky top-0 z-50 bg-white shadow-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link href="/" className="text-2xl font-bold text-[#db2777]">
-            রূপসী
-          </Link>
-          <div className="flex items-center gap-6 text-base font-medium">
-            <Link
-              href="/"
-              className="text-[#db2777] hover:text-[#9d174d] transition-colors"
-            >
-              হোম
-            </Link>
-            <Link
-              href="/shop"
-              className="text-gray-700 hover:text-[#db2777] transition-colors"
-            >
-              দোকান
-            </Link>
-            <Link
-              href="/cart"
-              className="text-gray-700 hover:text-[#db2777] transition-colors"
-            >
-              🛒 কার্ট
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <Navbar active="home" />
 
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-pink-100 via-pink-50 to-white">

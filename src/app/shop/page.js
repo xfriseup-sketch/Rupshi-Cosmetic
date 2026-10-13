@@ -1,5 +1,10 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import Navbar from "@/components/Navbar";
+import { useCart } from "@/context/CartContext";
 
 // Category badge colors & Bengali labels
 const categoryMeta = {
@@ -9,59 +14,38 @@ const categoryMeta = {
   Fragrance: { bn: "ফ্র্যাগ্রেন্স", badge: "bg-purple-100 text-purple-700" },
 };
 
-/**
- * Fetch products server-side (no client-side fetching for initial load).
- */
-async function getProducts() {
-  try {
-    // In server components during rendering, absolute URLs need the host header
-    const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/products`, {
-      cache: "no-store",
-    });
+export default function ShopPage() {
+  const { addToCart } = useCart();
 
-    if (!res.ok) return null;
+  // null = loading, [] = empty, [...] = products
+  const [products, setProducts] = useState(null);
 
-    const data = await res.json();
-    return data.products ?? [];
-  } catch (error) {
-    console.error("Failed to fetch products:", error);
-    return null;
-  }
-}
+  useEffect(() => {
+    let cancelled = false;
 
-export default async function ShopPage() {
-  const products = await getProducts();
+    async function fetchProducts() {
+      try {
+        const res = await fetch("/api/products");
+        if (!res.ok) throw new Error(`Request failed with status ${res.status}`);
+        const data = await res.json();
+        if (!cancelled) setProducts(data.products ?? []);
+      } catch (error) {
+        console.error("Failed to fetch products:", error);
+        if (!cancelled) setProducts([]);
+      }
+    }
+
+    fetchProducts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <main className="min-h-screen bg-pink-50">
       {/* Navbar */}
-      <nav className="sticky top-0 z-50 bg-white shadow-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link href="/" className="text-2xl font-bold text-[#db2777]">
-            রূপসী
-          </Link>
-          <div className="flex items-center gap-6 text-base font-medium">
-            <Link
-              href="/"
-              className="text-gray-700 hover:text-[#db2777] transition-colors"
-            >
-              হোম
-            </Link>
-            <Link
-              href="/shop"
-              className="text-[#db2777] hover:text-[#9d174d] transition-colors"
-            >
-              দোকান
-            </Link>
-            <Link
-              href="/cart"
-              className="text-gray-700 hover:text-[#db2777] transition-colors"
-            >
-              🛒 কার্ট
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <Navbar active="shop" />
 
       {/* Shop Header */}
       <section className="bg-gradient-to-br from-pink-100 via-pink-50 to-white">
@@ -174,6 +158,7 @@ export default async function ShopPage() {
                         <button
                           type="button"
                           disabled={!product.inStock}
+                          onClick={() => addToCart(product)}
                           className="rounded-full bg-[#db2777] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#9d174d] disabled:cursor-not-allowed disabled:bg-gray-300"
                         >
                           কার্টে যোগ করো

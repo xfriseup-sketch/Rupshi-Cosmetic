@@ -18,6 +18,15 @@ module.exports = {
           dark: "#9d174d",
         },
       },
+      keyframes: {
+        "toast-in": {
+          "0%": { opacity: "0", transform: "translate(-50%, 1rem)" },
+          "100%": { opacity: "1", transform: "translate(-50%, 0)" },
+        },
+      },
+      animation: {
+        "toast-in": "toast-in 0.3s ease-out",
+      },
     },
   },
   plugins: [],
