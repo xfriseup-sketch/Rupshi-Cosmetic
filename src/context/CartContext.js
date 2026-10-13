@@ -113,10 +113,15 @@ export function CartProvider({ children }) {
   }, []);
 
   /**
-   * Empty the whole cart.
+   * Empty the whole cart (e.g. after a successful order placement).
    */
   const clearCart = useCallback(() => {
     setItems([]);
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+      console.error("Failed to clear cart from localStorage:", error);
+    }
   }, []);
 
   // Dynamically calculated totals

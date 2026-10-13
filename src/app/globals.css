@@ -9,3 +9,10 @@ html {
 body {
   @apply bg-pink-50 text-gray-800 antialiased;
 }
+
+/* Animated checkmark draw for the order-success page */
+@keyframes draw-check {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
