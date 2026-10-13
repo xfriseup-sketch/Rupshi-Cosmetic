@@ -8,6 +8,9 @@ module.exports = {
   ],
   theme: {
     extend: {
+      lineClamp: {
+        2: "2",
+      },
       colors: {
         primary: {
           DEFAULT: "#db2777",
