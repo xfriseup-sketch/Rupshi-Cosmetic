@@ -125,7 +125,8 @@ export async function POST(request) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("Error creating product:", error);
+    // DEBUG: Log exact error to Vercel Console
+    console.error("PRODUCT SAVE FAILED:", error);
 
     if (error instanceof mongoose.Error.ValidationError) {
       const fieldErrors = {};
@@ -138,8 +139,12 @@ export async function POST(request) {
       );
     }
 
+    // FIXED: Return raw error message instead of generic Bengali text
     return NextResponse.json(
-      { success: false, message: "প্রোডাক্ট তৈরি করা যায়নি" },
+      { 
+        success: false, 
+        message: error.message || "Unknown Server Error" 
+      },
       { status: 500 }
     );
   }
