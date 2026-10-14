@@ -125,21 +125,30 @@ export async function POST(request) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("Error creating product:", error);
+    // Full raw error in Vercel / server logs for debugging
+    console.error("PRODUCT SAVE FAILED:", error);
+
+    // Capture the EXACT error message so it can be shown on screen
+    const exactMessage =
+      error?.message ||
+      (typeof error === "string" ? error : "") ||
+      String(error);
 
     if (error instanceof mongoose.Error.ValidationError) {
       const fieldErrors = {};
       for (const [field, err] of Object.entries(error.errors)) {
         fieldErrors[field] = err.message;
       }
+      // Raw mongoose message surfaced directly (no generic fallback)
       return NextResponse.json(
-        { success: false, message: "প্রোডাক্ট সেভ করা যায়নি", errors: fieldErrors },
+        { success: false, message: exactMessage, errors: fieldErrors },
         { status: 400 }
       );
     }
 
+    // DEBUG MODE: return the raw server error message to the client
     return NextResponse.json(
-      { success: false, message: "প্রোডাক্ট তৈরি করা যায়নি" },
+      { success: false, message: exactMessage },
       { status: 500 }
     );
   }

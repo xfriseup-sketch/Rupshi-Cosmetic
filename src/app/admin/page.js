@@ -332,7 +332,14 @@ function ProductManager() {
 
       if (!res.ok || !data.success) {
         setFieldErrors(data.errors || {});
-        setMessage({ type: "error", text: data.message || "প্রোডাক্ট যোগ করা যায়নি" });
+        // DEBUG MODE: show the RAW error message from the server directly.
+        // No generic "প্রোডাক্ট তৈরি করা যায়নি" fallback anymore — if the
+        // API returned any message at all, display it verbatim.
+        const rawMessage =
+          typeof data?.message === "string" && data.message.trim()
+            ? data.message
+            : `সার্ভার এরর (HTTP ${res.status})${typeof data?.error === "string" ? ": " + data.error : ""}`;
+        setMessage({ type: "error", text: rawMessage });
       } else {
         setForm(emptyProductForm);
         setMessage({ type: "success", text: "নতুন প্রোডাক্ট যোগ হয়েছে ✅" });
