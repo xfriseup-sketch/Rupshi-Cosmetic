@@ -18,7 +18,12 @@ const ProductSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      enum: ["Skincare", "Makeup", "Haircare", "Fragrance"],
+      required: [true, "Product category is required"],
+      trim: true,
+      // Categories are now managed dynamically via the admin panel
+      // (src/models/Category.js), so this field stores the category NAME.
+      // The default set below keeps existing data valid.
+      default: "Skincare",
     },
     image: {
       type: String,

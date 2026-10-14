@@ -3,17 +3,20 @@ import mongoose from "mongoose";
 import dbConnect from "@/lib/mongodb";
 import { dbNotConfiguredResponse } from "@/lib/dbStatus";
 import Product from "@/models/Product";
+import Category from "@/models/Category";
 
 // Products come from MongoDB and change frequently — always fetch fresh data
 export const dynamic = "force-dynamic";
 
-const CATEGORIES = ["Skincare", "Makeup", "Haircare", "Fragrance"];
+// Default categories — used only as a fallback when the database is not
+// configured. Real category lists are managed dynamically via /api/categories.
+const DEFAULT_CATEGORIES = ["Skincare", "Makeup", "Haircare", "Fragrance"];
 
 /**
  * Validate + normalize a product payload coming from POST/PUT requests.
  * Returns { data } on success or { errors } object on failure.
  */
-function parseProductPayload(body) {
+async function parseProductPayload(body) {
   const errors = {};
 
   const name = (body?.name || "").trim();
@@ -27,7 +30,23 @@ function parseProductPayload(body) {
   if (body?.price === undefined || body?.price === "" || Number.isNaN(price) || price < 0) {
     errors.price = "সঠিক দাম দিন";
   }
-  if (!CATEGORIES.includes(category)) {
+
+  // Category must exist in the dynamic category list (falls back to the
+  // defaults when MongoDB is not configured, so validation never crashes).
+  let allowedCategories = DEFAULT_CATEGORIES;
+  try {
+    const conn = await dbConnect();
+    if (conn) {
+      const cats = await Category.find({}).select("name").lean();
+      if (cats.length > 0) allowedCategories = cats.map((c) => c.name);
+    }
+  } catch (e) {
+    console.warn("Could not load categories for validation:", e.message);
+  }
+
+  if (!category) {
+    errors.category = "ক্যাটাগরি নির্বাচন করুন";
+  } else if (!allowedCategories.includes(category)) {
     errors.category = "সঠিক ক্যাটাগরি নির্বাচন করুন";
   }
   if (!image || !/^https?:\/\/.+/i.test(image)) {
@@ -86,7 +105,7 @@ export async function GET() {
 export async function POST(request) {
   try {
     const body = await request.json().catch(() => null);
-    const { data, errors } = parseProductPayload(body);
+    const { data, errors } = await parseProductPayload(body);
 
     if (errors) {
       return NextResponse.json(
@@ -142,7 +161,7 @@ export async function PUT(request) {
     }
 
     const body = await request.json().catch(() => null);
-    const { data, errors } = parseProductPayload(body);
+    const { data, errors } = await parseProductPayload(body);
 
     if (errors) {
       return NextResponse.json(

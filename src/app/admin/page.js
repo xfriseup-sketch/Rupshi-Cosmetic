@@ -6,7 +6,22 @@ import Link from "next/link";
 const ADMIN_PASSWORD = "rupshi2024";
 const AUTH_KEY = "rupshi-admin-auth";
 
-const CATEGORIES = ["Skincare", "Makeup", "Haircare", "Fragrance"];
+// Fallback list used only when /api/categories is unavailable (e.g. DB not configured)
+const DEFAULT_CATEGORIES = ["Skincare", "Makeup", "Haircare", "Fragrance"];
+
+/** Fetch the dynamic category list from the API; falls back to defaults. */
+async function fetchCategories() {
+  try {
+    const res = await fetch("/api/categories");
+    const data = await res.json().catch(() => null);
+    if (data?.success && Array.isArray(data.categories) && data.categories.length > 0) {
+      return data.categories;
+    }
+  } catch {
+    /* network error — fall through to defaults */
+  }
+  return DEFAULT_CATEGORIES.map((name) => ({ _id: name, name, slug: name.toLowerCase(), icon: "🛍️" }));
+}
 
 const CATEGORY_BN = {
   Skincare: "স্কিনকেয়ার",
@@ -158,7 +173,7 @@ function AdminLogin({ onLogin }) {
 /* Dashboard with two tabs                                             */
 /* ------------------------------------------------------------------ */
 function AdminDashboard({ onLogout }) {
-  const [tab, setTab] = useState("products"); // 'products' | 'orders'
+  const [tab, setTab] = useState("products"); // 'products' | 'categories' | 'orders'
 
   return (
     <main className="min-h-screen bg-pink-50 pb-16">
@@ -211,10 +226,26 @@ function AdminDashboard({ onLogout }) {
           >
             🧾 অর্ডার ম্যানেজমেন্ট
           </button>
+          <button
+            onClick={() => setTab("categories")}
+            className={`px-4 py-2.5 rounded-t-lg font-semibold text-sm sm:text-base transition-colors border-b-2 -mb-px ${
+              tab === "categories"
+                ? "border-[#db2777] text-[#db2777] bg-white"
+                : "border-transparent text-gray-500 hover:text-[#db2777]"
+            }`}
+          >
+            🏷️ ক্যাটেগরি ম্যানেজমেন্ট
+          </button>
         </div>
 
         <section className="bg-white rounded-b-2xl rounded-tr-2xl shadow-sm border border-pink-100 border-t-0 p-4 sm:p-6">
-          {tab === "products" ? <ProductManager /> : <OrderManager />}
+          {tab === "products" ? (
+            <ProductManager />
+          ) : tab === "categories" ? (
+            <CategoryManager />
+          ) : (
+            <OrderManager />
+          )}
         </section>
       </div>
     </main>
@@ -239,6 +270,7 @@ function MessageBanner({ message, type }) {
 /* Product management tab                                              */
 /* ------------------------------------------------------------------ */
 function ProductManager() {
+  const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -274,6 +306,7 @@ function ProductManager() {
 
   useEffect(() => {
     fetchProducts();
+    fetchCategories().then(setCategories);
   }, [fetchProducts]);
 
   const updateForm = (key) => (e) => {
@@ -395,9 +428,10 @@ function ProductManager() {
               onChange={updateForm("category")}
               className="w-full px-3 py-2 rounded-lg border border-pink-200 focus:outline-none focus:ring-2 focus:ring-[#db2777] bg-white"
             >
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {CATEGORY_BN[c]} ({c})
+              {categories.map((c) => (
+                <option key={c._id || c.name} value={c.name}>
+                  {c.icon ? `${c.icon} ` : ""}
+                  {CATEGORY_BN[c.name] || c.name}
                 </option>
               ))}
             </select>
@@ -406,17 +440,11 @@ function ProductManager() {
             )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">ইমেজ URL *</label>
-            <input
-              type="url"
-              value={form.image}
-              onChange={updateForm("image")}
-              placeholder="https://..."
-              className="w-full px-3 py-2 rounded-lg border border-pink-200 focus:outline-none focus:ring-2 focus:ring-[#db2777]"
-            />
-            {fieldErrors.image && <p className="text-red-600 text-xs mt-1">{fieldErrors.image}</p>}
-          </div>
+          <ImageUploadField
+            value={form.image}
+            error={fieldErrors.image}
+            onChange={(url) => setForm((prev) => ({ ...prev, image: url }))}
+          />
 
           <div className="sm:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">বিবরণ</label>
@@ -537,6 +565,7 @@ function ProductManager() {
       {editing && (
         <EditProductModal
           product={editing}
+          categories={categories}
           saving={saving}
           onClose={() => setEditing(null)}
           onSave={handleUpdate}
@@ -578,7 +607,7 @@ function ProductManager() {
 /* ------------------------------------------------------------------ */
 /* Edit product modal                                                  */
 /* ------------------------------------------------------------------ */
-function EditProductModal({ product, onClose, onSave, saving }) {
+function EditProductModal({ product, categories = [], onClose, onSave, saving }) {
   const [form, setForm] = useState({
     name: product.name || "",
     description: product.description || "",
@@ -658,11 +687,13 @@ function EditProductModal({ product, onClose, onSave, saving }) {
                 onChange={update("category")}
                 className="w-full px-3 py-2 rounded-lg border border-pink-200 focus:outline-none focus:ring-2 focus:ring-[#db2777] bg-white"
               >
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {CATEGORY_BN[c]}
-                  </option>
-                ))}
+                {(categories.length > 0 ? categories : DEFAULT_CATEGORIES.map((n) => ({ _id: n, name: n }))).map(
+                  (c) => (
+                    <option key={c._id || c.name} value={c.name}>
+                      {CATEGORY_BN[c.name] || c.name}
+                    </option>
+                  )
+                )}
               </select>
               {fieldErrors.category && (
                 <p className="text-red-600 text-xs mt-1">{fieldErrors.category}</p>
@@ -670,18 +701,11 @@ function EditProductModal({ product, onClose, onSave, saving }) {
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">ইমেজ URL *</label>
-            <input
-              type="url"
-              value={form.image}
-              onChange={update("image")}
-              className="w-full px-3 py-2 rounded-lg border border-pink-200 focus:outline-none focus:ring-2 focus:ring-[#db2777]"
-            />
-            {fieldErrors.image && (
-              <p className="text-red-600 text-xs mt-1">{fieldErrors.image}</p>
-            )}
-          </div>
+          <ImageUploadField
+            value={form.image}
+            error={fieldErrors.image}
+            onChange={(url) => setForm((prev) => ({ ...prev, image: url }))}
+          />
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">বিবরণ</label>

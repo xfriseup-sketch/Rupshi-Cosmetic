@@ -4,7 +4,9 @@ A full-stack e-commerce website for a Bangladeshi cosmetic shop, built with **Ne
 
 ## Features
 
-- 🏠 Homepage with hero section & category cards
+- 🏠 Homepage with hero background image, dynamic category cards & "জনপ্রিয় প্রোডাক্ট" section
+- ☁️ Cloudinary image uploads from the admin panel (file picker + preview)
+- 🏷️ Dynamic category management (add/edit/delete categories from the admin panel)
 - 🛍️ Product shop page (responsive grid, BDT pricing)
 - 🛒 Shopping cart (React Context + localStorage persistence, toast notifications)
 - 💵 Checkout flow with order validation (server-side price verification)
@@ -48,6 +50,11 @@ See [.env.example](./.env.example). Required variables:
 | ---------------------- | -------- | ----------------------------------------------------------- |
 | `MONGODB_URI`          | ✅       | MongoDB connection string (local or Atlas)                  |
 | `NEXT_PUBLIC_BASE_URL` | ❌       | Absolute base URL for server-side fetches (optional on Vercel) |
+| `CLOUDINARY_CLOUD_NAME`  | ❌    | Cloudinary cloud name — enables admin image uploads         |
+| `CLOUDINARY_API_KEY`     | ❌    | Cloudinary API key                                          |
+| `CLOUDINARY_API_SECRET`  | ❌    | Cloudinary API secret                                       |
+
+Without Cloudinary credentials, `/api/upload` returns a friendly 503 message and admins can still paste image URLs directly.
 
 ## Project Structure
 
@@ -56,6 +63,8 @@ src/
 ├── app/
 │   ├── admin/            # Password-protected admin panel (products & orders)
 │   ├── api/
+│   │   ├── upload/       # POST multipart → Cloudinary (image upload)
+│   │   ├── categories/   # GET/POST + [id] PUT/DELETE (dynamic categories)
 │   │   ├── products/     # GET / POST / PUT / DELETE product endpoints
 │   │   └── orders/       # POST/GET + [id] PATCH (status update)
 │   ├── cart/             # Shopping cart page

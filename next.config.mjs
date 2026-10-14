@@ -9,6 +9,7 @@ const nextConfig = {
       { protocol: "https", hostname: "picsum.photos" },
       { protocol: "https", hostname: "**.picsum.photos" },
       { protocol: "https", hostname: "images.unsplash.com" },
+      { protocol: "https", hostname: "res.cloudinary.com" },
       // Allow http too — some seed data / admin-entered URLs may be plain http
       { protocol: "http", hostname: "**" },
     ],

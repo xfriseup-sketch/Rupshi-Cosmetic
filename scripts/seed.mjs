@@ -27,7 +27,7 @@ const ProductSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true },
     description: { type: String, trim: true },
     price: { type: Number, required: true, min: 0 },
-    category: { type: String, enum: ["Skincare", "Makeup", "Haircare", "Fragrance"] },
+    category: { type: String, required: true, trim: true },
     image: { type: String, match: [/^https?:\/\/.+/i, "Image must be a valid URL"] },
     inStock: { type: Boolean, default: true },
     createdAt: { type: Date, default: Date.now },
@@ -47,7 +47,31 @@ const demoProducts = [
   { name: "পারফিউম ব্ল্যাম", description: "দীর্ঘস্থায়ী ফুলেল সুগন্ধি", price: 1200, category: "Fragrance", image: "https://picsum.photos/seed/perfume/400/400" },
 ];
 
+// ---- Categories collection (dynamic category management) ----
+const CategorySchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, unique: true, trim: true },
+    slug: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    icon: { type: String, default: "🛍️" },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { collection: "categories" }
+);
+const Category = mongoose.models.Category || mongoose.model("Category", CategorySchema);
+
+const demoCategories = [
+  { name: "Skincare", slug: "skincare", icon: "🧴" },
+  { name: "Makeup", slug: "makeup", icon: "💄" },
+  { name: "Haircare", slug: "haircare", icon: "💇‍♀️" },
+  { name: "Fragrance", slug: "fragrance", icon: "🌸" },
+];
+
 await Product.deleteMany({});
 const created = await Product.create(demoProducts);
 console.log(`Seeded ${created.length} products ✔`);
+
+await Category.deleteMany({});
+const createdCats = await Category.create(demoCategories);
+console.log(`Seeded ${createdCats.length} categories ✔`);
+
 await mongoose.disconnect();
