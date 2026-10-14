@@ -91,7 +91,9 @@ export default function CheckoutPage() {
         const fieldErrors = data.errors || {};
         setErrors(fieldErrors);
         setServerError(
-          fieldErrors.phone
+          res.status === 503 || data.dbConfigured === false
+            ? "ডাটাবেস কনফিগার করা হয়নি। দয়া করে MONGODB_URI সেট করুন।"
+            : fieldErrors.phone
             ? "তথ্যে সমস্যা আছে, অনুগ্রহ করে সংশোধন করুন।"
             : data.message || "অর্ডার গ্রহণ করা যায়নি। আবার চেষ্টা করুন।"
         );

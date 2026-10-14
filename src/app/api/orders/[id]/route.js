@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/mongodb";
+import { dbNotConfiguredResponse } from "@/lib/dbStatus";
 import Order from "@/models/Order";
 
 // Orders are read/written live — never cache this route
@@ -38,7 +39,8 @@ export async function PATCH(request, { params }) {
       );
     }
 
-    await dbConnect();
+    const conn = await dbConnect();
+    if (!conn) return dbNotConfiguredResponse();
 
     const order = await Order.findByIdAndUpdate(
       id,

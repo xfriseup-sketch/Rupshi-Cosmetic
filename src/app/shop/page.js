@@ -19,6 +19,8 @@ export default function ShopPage() {
 
   // null = loading, [] = empty, [...] = products
   const [products, setProducts] = useState(null);
+  // true when the API responded 503 (MONGODB_URI not configured on the server)
+  const [dbNotConfigured, setDbNotConfigured] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -26,9 +28,22 @@ export default function ShopPage() {
     async function fetchProducts() {
       try {
         const res = await fetch("/api/products");
+        const data = await res.json().catch(() => null);
+
+        if (cancelled) return;
+
+        // Database env var missing on the deployment → friendly notice instead
+        // of a blank page / crash.
+        if (res.status === 503 || data?.dbConfigured === false) {
+          setDbNotConfigured(true);
+          setProducts([]);
+          return;
+        }
+
         if (!res.ok) throw new Error(`Request failed with status ${res.status}`);
-        const data = await res.json();
-        if (!cancelled) setProducts(data.products ?? []);
+
+        setDbNotConfigured(false);
+        setProducts(data?.products ?? []);
       } catch (error) {
         console.error("Failed to fetch products:", error);
         if (!cancelled) setProducts([]);
@@ -66,6 +81,27 @@ export default function ShopPage() {
           <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
             <div className="h-12 w-12 animate-spin rounded-full border-4 border-pink-200 border-t-[#db2777]" />
             <p className="text-xl font-semibold text-[#db2777]">লোড হচ্ছে...</p>
+          </div>
+        ) : products.length === 0 && dbNotConfigured ? (
+          // Database not configured (e.g. fresh Vercel deploy without MONGODB_URI)
+          <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-pink-200 bg-white px-6 py-16 text-center shadow-sm">
+            <span className="text-5xl">🗄️</span>
+            <p className="text-xl font-semibold text-[#db2777]">
+              ডাটাবেস কনফিগার করা হয়নি। দয়া করে অ্যাডমিন প্যানেল থেকে MONGODB_URI সেট করুন।
+            </p>
+            <p className="max-w-md text-sm text-gray-500">
+              ভের্‌সেল প্রজেক্ট সেটিংস → Environment Variables-এ{" "}
+              <code className="rounded bg-pink-50 px-1.5 py-0.5 font-mono text-xs text-[#db2777]">
+                MONGODB_URI
+              </code>{" "}
+              যোগ করে পুনরায় ডিপ্লয় করলেই দোকান চালু হয়ে যাবে।
+            </p>
+            <Link
+              href="/admin"
+              className="mt-4 rounded-full bg-[#db2777] px-6 py-2 font-semibold text-white transition-colors hover:bg-[#9d174d]"
+            >
+              অ্যাডমিন প্যানেলে যাও
+            </Link>
           </div>
         ) : products.length === 0 ? (
           // Empty state

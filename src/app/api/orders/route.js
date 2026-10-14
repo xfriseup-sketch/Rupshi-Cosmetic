@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/mongodb";
+import { dbNotConfiguredResponse } from "@/lib/dbStatus";
 import Order from "@/models/Order";
 import Product from "@/models/Product";
 
@@ -57,7 +58,8 @@ export async function POST(request) {
       );
     }
 
-    await dbConnect();
+    const conn = await dbConnect();
+    if (!conn) return dbNotConfiguredResponse();
 
     // ---- Server-side price verification against DB ----
     const objectIds = rawItems
@@ -163,7 +165,8 @@ export async function POST(request) {
  */
 export async function GET() {
   try {
-    await dbConnect();
+    const conn = await dbConnect();
+    if (!conn) return dbNotConfiguredResponse();
 
     const orders = await Order.find({}).sort({ createdAt: -1 }).lean();
 

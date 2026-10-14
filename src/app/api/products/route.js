@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/mongodb";
+import { dbNotConfiguredResponse } from "@/lib/dbStatus";
 import Product from "@/models/Product";
 
 // Products come from MongoDB and change frequently — always fetch fresh data
@@ -52,7 +53,8 @@ function serialize(product) {
  */
 export async function GET() {
   try {
-    await dbConnect();
+    const conn = await dbConnect();
+    if (!conn) return dbNotConfiguredResponse();
 
     const products = await Product.find({}).sort({ createdAt: -1 }).lean();
 
@@ -93,7 +95,8 @@ export async function POST(request) {
       );
     }
 
-    await dbConnect();
+    const conn = await dbConnect();
+    if (!conn) return dbNotConfiguredResponse();
 
     const product = await Product.create(data);
 
@@ -148,7 +151,8 @@ export async function PUT(request) {
       );
     }
 
-    await dbConnect();
+    const conn = await dbConnect();
+    if (!conn) return dbNotConfiguredResponse();
 
     const product = await Product.findByIdAndUpdate(id, data, {
       new: true,
@@ -191,7 +195,8 @@ export async function DELETE(request) {
       );
     }
 
-    await dbConnect();
+    const conn = await dbConnect();
+    if (!conn) return dbNotConfiguredResponse();
 
     const product = await Product.findByIdAndDelete(id).lean();
 

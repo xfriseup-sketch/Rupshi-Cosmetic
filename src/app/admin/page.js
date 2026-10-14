@@ -247,12 +247,23 @@ function ProductManager() {
   const [message, setMessage] = useState(null); // { type, text }
   const [editing, setEditing] = useState(null); // product being edited (modal)
   const [deleting, setDeleting] = useState(null); // product pending delete confirm
+  const [dbNotConfigured, setDbNotConfigured] = useState(false);
 
   const fetchProducts = useCallback(async () => {
     try {
       const res = await fetch("/api/products");
-      const data = await res.json();
-      if (data.success) setProducts(data.products || []);
+      const data = await res.json().catch(() => null);
+
+      // API returns 503 when MONGODB_URI is missing on the server —
+      // show a friendly notice instead of an empty table.
+      if (res.status === 503 || data?.dbConfigured === false) {
+        setDbNotConfigured(true);
+        setProducts([]);
+        return;
+      }
+
+      setDbNotConfigured(false);
+      if (data?.success) setProducts(data.products || []);
     } catch (err) {
       console.error(err);
       setMessage({ type: "error", text: "প্রোডাক্ট লোড করা যায়নি" });
@@ -448,6 +459,14 @@ function ProductManager() {
 
         {loading ? (
           <p className="text-gray-500 py-8 text-center animate-pulse">লোড হচ্ছে...</p>
+        ) : products.length === 0 && dbNotConfigured ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-6 py-8 text-center">
+            <p className="font-semibold text-amber-800">
+              🗄️ ডাটাবেস কনফিগার করা হয়নি।{" "}
+              <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs">MONGODB_URI</code>{" "}
+              সেট করার পর প্রোডাক্ট এখানে দেখা যাবে।
+            </p>
+          </div>
         ) : products.length === 0 ? (
           <p className="text-gray-500 py-8 text-center">কোনো প্রোডাক্ট পাওয়া যায়নি</p>
         ) : (
@@ -715,12 +734,21 @@ function OrderManager() {
   const [filter, setFilter] = useState("all"); // all | pending | processing | delivered
   const [updatingId, setUpdatingId] = useState(null);
   const [message, setMessage] = useState(null);
+  const [dbNotConfigured, setDbNotConfigured] = useState(false);
 
   const fetchOrders = useCallback(async () => {
     try {
       const res = await fetch("/api/orders");
-      const data = await res.json();
-      if (data.success) setOrders(data.orders || []);
+      const data = await res.json().catch(() => null);
+
+      if (res.status === 503 || data?.dbConfigured === false) {
+        setDbNotConfigured(true);
+        setOrders([]);
+        return;
+      }
+
+      setDbNotConfigured(false);
+      if (data?.success) setOrders(data.orders || []);
     } catch (err) {
       console.error(err);
       setMessage({ type: "error", text: "অর্ডার লোড করা যায়নি" });
@@ -799,6 +827,14 @@ function OrderManager() {
 
       {loading ? (
         <p className="text-gray-500 py-8 text-center animate-pulse">লোড হচ্ছে...</p>
+      ) : orders.length === 0 && dbNotConfigured ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-6 py-8 text-center">
+          <p className="font-semibold text-amber-800">
+            🗄️ ডাটাবেস কনফিগার করা হয়নি।{" "}
+            <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs">MONGODB_URI</code>{" "}
+            সেট করার পর অর্ডার এখানে দেখা যাবে।
+          </p>
+        </div>
       ) : filteredOrders.length === 0 ? (
         <p className="text-gray-500 py-8 text-center">
           {orders.length === 0
