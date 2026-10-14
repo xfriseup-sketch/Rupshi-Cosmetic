@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import ImageUploadField from "@/components/ImageUploadField";
+import CategoryManager from "@/components/CategoryManager";
 
 const ADMIN_PASSWORD = "rupshi2024";
 const AUTH_KEY = "rupshi-admin-auth";
