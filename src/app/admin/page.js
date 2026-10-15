@@ -17,12 +17,99 @@ async function fetchCategories() {
     const res = await fetch("/api/categories");
     const data = await res.json().catch(() => null);
     if (data?.success && Array.isArray(data.categories) && data.categories.length > 0) {
-      return data.categories;
+      return { categories: data.categories, tree: data.tree || [] };
     }
   } catch {
     /* network error — fall through to defaults */
   }
-  return DEFAULT_CATEGORIES.map((name) => ({ _id: name, name, slug: name.toLowerCase(), icon: "🛍️" }));
+  return {
+    categories: DEFAULT_CATEGORIES.map((name) => ({ _id: name, name, slug: name.toLowerCase(), icon: "🛍️" })),
+    tree: [],
+  };
+}
+
+/**
+ * Flatten the nested category tree returned by GET /api/categories into a flat
+ * list for the product form dropdown:
+ *   [{ value: "Lipstick", label: "💄 Makeup > Lipstick", depth: 1 }, ...]
+ * Sub-categories appear right under their parent with a "Parent > Child" label.
+ * Falls back to a simple one-level list when no tree is provided.
+ */
+function flattenCategoryTree(tree = [], categories = []) {
+  const out = [];
+  const seen = new Set();
+  const push = (node, depth, prefix) => {
+    const key = String(node._id || node.name);
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({
+      value: node.name,
+      label: `${prefix}${node.icon ? `${node.icon} ` : ""}${CATEGORY_BN[node.name] || node.name}`,
+      depth,
+    });
+    (node.children || []).forEach((child) => push(child, depth + 1, `${prefix}${node.name} > `));
+  };
+  if (Array.isArray(tree) && tree.length > 0) {
+    tree.forEach((root) => push(root, 0, ""));
+  } else {
+    // Fallback: derive hierarchy from the flat list via parentCategory
+    const byId = new Map(categories.map((c) => [String(c._id), c]));
+    categories
+      .filter((c) => !c.parentCategory || !byId.has(String(c.parentCategory)))
+      .forEach((root) => {
+        push(root, 0, "");
+        categories
+          .filter((c) => String(c.parentCategory) === String(root._id))
+          .forEach((child) => push(child, 1, `${root.name} > `));
+      });
+  }
+  return out;
+}
+
+/** Hierarchical <select> for the product forms (Phase 7 Step 2). */
+function CategorySelect({ value, onChange, options, invalid }) {
+  const baseClass =
+    "w-full px-3 py-2 rounded-lg border bg-white focus:outline-none focus:ring-2 focus:ring-[#db2777]";
+  return (
+    <>
+      <select
+        value={value}
+        onChange={onChange}
+        className={`${baseClass} ${invalid ? "border-red-400" : "border-pink-200"}`}
+      >
+        <option value="">ক্যাটাগরি সিলেক্ট করুন</option>
+        {options.some((o) => o.depth === 0) && (
+          <optgroup label="— মেইন ক্যাটাগরি —">
+            {options
+              .filter((o) => o.depth === 0)
+              .map((o) => (
+                <option key={o.value} value={o.value} className="font-bold">
+                  {o.label}
+                </option>
+              ))}
+          </optgroup>
+        )}
+        {options
+          .filter((o) => o.depth > 0)
+          .map((o) => (
+            <option key={o.value} value={o.value}>
+              {"\u00A0\u00A0".repeat(o.depth)}└── {o.label}
+            </option>
+          ))}
+      </select>
+      {/* Keep a saved legacy/deleted value selectable so editing never loses it */}
+      {value && !options.some((o) => o.value === value) && (
+        <>
+          <option value={value} hidden>
+            {value}
+          </option>
+          <p className="text-amber-700 text-xs mt-1">
+            ⚠️ এই প্রোডাক্টের ক্যাটাগরি “{CATEGORY_BN[value] || value}” বর্তমান তালিকায় নেই।
+          </p>
+        </>
+      )}
+    </>
+  );
 }
 
 const CATEGORY_BN = {
@@ -48,7 +135,7 @@ const emptyProductForm = {
   name: "",
   description: "",
   price: "",
-  category: "Skincare",
+  category: "",
   image: "",
   inStock: true,
   // Phase 6 fields
@@ -314,6 +401,7 @@ function MessageBanner({ message, type }) {
 /* ------------------------------------------------------------------ */
 function ProductManager() {
   const [categories, setCategories] = useState([]);
+  const [categoryTree, setCategoryTree] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -349,8 +437,14 @@ function ProductManager() {
 
   useEffect(() => {
     fetchProducts();
-    fetchCategories().then(setCategories);
+    fetchCategories().then(({ categories: cats, tree }) => {
+      setCategories(cats);
+      setCategoryTree(tree);
+    });
   }, [fetchProducts]);
+
+  // Hierarchical options for the category dropdown (Phase 7 Step 2)
+  const categoryOptions = flattenCategoryTree(categoryTree, categories);
 
   const updateForm = (key) => (e) => {
     const value = e.target.type === "checkbox" ? e.target.checked : e.target.value;
@@ -473,18 +567,12 @@ function ProductManager() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">ক্যাটাগরি *</label>
-            <select
+            <CategorySelect
               value={form.category}
               onChange={updateForm("category")}
-              className="w-full px-3 py-2 rounded-lg border border-pink-200 focus:outline-none focus:ring-2 focus:ring-[#db2777] bg-white"
-            >
-              {categories.map((c) => (
-                <option key={c._id || c.name} value={c.name}>
-                  {c.icon ? `${c.icon} ` : ""}
-                  {CATEGORY_BN[c.name] || c.name}
-                </option>
-              ))}
-            </select>
+              options={categoryOptions}
+              invalid={Boolean(fieldErrors.category)}
+            />
             {fieldErrors.category && (
               <p className="text-red-600 text-xs mt-1">{fieldErrors.category}</p>
             )}
@@ -657,6 +745,7 @@ function ProductManager() {
         <EditProductModal
           product={editing}
           categories={categories}
+          categoryOptions={categoryOptions}
           saving={saving}
           onClose={() => setEditing(null)}
           onSave={handleUpdate}
@@ -698,7 +787,7 @@ function ProductManager() {
 /* ------------------------------------------------------------------ */
 /* Edit product modal                                                  */
 /* ------------------------------------------------------------------ */
-function EditProductModal({ product, categories = [], onClose, onSave, saving }) {
+function EditProductModal({ product, categories = [], categoryOptions = [], onClose, onSave, saving }) {
   const [form, setForm] = useState({
     name: product.name || "",
     description: product.description || "",
@@ -785,19 +874,21 @@ function EditProductModal({ product, categories = [], onClose, onSave, saving })
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">ক্যাটাগরি *</label>
-              <select
+              <CategorySelect
                 value={form.category}
                 onChange={update("category")}
-                className="w-full px-3 py-2 rounded-lg border border-pink-200 focus:outline-none focus:ring-2 focus:ring-[#db2777] bg-white"
-              >
-                {(categories.length > 0 ? categories : DEFAULT_CATEGORIES.map((n) => ({ _id: n, name: n }))).map(
-                  (c) => (
-                    <option key={c._id || c.name} value={c.name}>
-                      {CATEGORY_BN[c.name] || c.name}
-                    </option>
-                  )
-                )}
-              </select>
+                options={
+                  categoryOptions.length > 0
+                    ? categoryOptions
+                    : flattenCategoryTree(
+                        [],
+                        categories.length > 0
+                          ? categories
+                          : DEFAULT_CATEGORIES.map((n) => ({ _id: n, name: n }))
+                      )
+                }
+                invalid={Boolean(fieldErrors.category)}
+              />
               {fieldErrors.category && (
                 <p className="text-red-600 text-xs mt-1">{fieldErrors.category}</p>
               )}
