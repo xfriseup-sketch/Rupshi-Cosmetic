@@ -25,10 +25,27 @@ async function parseProductPayload(body) {
   const category = (body?.category || "").trim();
   const image = (body?.image || "").trim();
   const inStock = Boolean(body?.inStock);
+  const brand = (body?.brand || "").trim();
+
+  // Phase 6 flags
+  const isFeatured = Boolean(body?.isFeatured);
+  const isNew = Boolean(body?.isNew);
+  let discountPrice = null;
+  if (body?.discountPrice !== undefined && body?.discountPrice !== null && body?.discountPrice !== "") {
+    discountPrice = Number(body.discountPrice);
+  }
 
   if (!name) errors.name = "প্রোডাক্টের নাম আবশ্যক";
   if (body?.price === undefined || body?.price === "" || Number.isNaN(price) || price < 0) {
     errors.price = "সঠিক দাম দিন";
+  }
+  if (!brand) errors.brand = "ব্র্যান্ড আবশ্যক";
+  if (discountPrice !== null) {
+    if (Number.isNaN(discountPrice) || discountPrice < 0) {
+      errors.discountPrice = "সঠিক ডিসকাউন্ট দাম দিন";
+    } else if (!Number.isNaN(price) && discountPrice >= price) {
+      errors.discountPrice = "ডিসকাউন্ট দাম মূল দামের চেয়ে কম হতে হবে";
+    }
   }
 
   // Category must exist in the dynamic category list (falls back to the
@@ -55,7 +72,9 @@ async function parseProductPayload(body) {
 
   if (Object.keys(errors).length > 0) return { errors };
 
-  return { data: { name, description, price, category, image, inStock } };
+  return {
+    data: { name, description, price, category, image, inStock, brand, isFeatured, isNew, discountPrice },
+  };
 }
 
 function serialize(product) {
@@ -68,21 +87,104 @@ function serialize(product) {
 
 /**
  * GET /api/products
- * Fetches all products from MongoDB and returns them as JSON.
+ * Fetches products from MongoDB with Phase 6 filtering support:
+ *   ?featured=true        → only isFeatured products (homepage section)
+ *   ?limit=N              → cap result count (default: all, max 50)
+ *   ?brand=X              → single brand or comma-separated brands
+ *   ?minPrice=Y&maxPrice=Z→ effective price range (uses discountPrice when set)
+ *   ?category=slug-or-name→ category incl. sub-categories (children included)
+ *   ?sort=newest|price-asc|price-desc  (default: newest)
  */
-export async function GET() {
+export async function GET(request) {
   try {
     const conn = await dbConnect();
     if (!conn) return dbNotConfiguredResponse();
 
-    const products = await Product.find({}).sort({ createdAt: -1 }).lean();
+    const sp = request.nextUrl.searchParams;
 
-    // Convert ObjectId / Date instances to plain strings for JSON response
-    const serializedProducts = products.map((product) => ({
-      ...product,
-      _id: product._id.toString(),
-      createdAt: product.createdAt ? product.createdAt.toISOString() : null,
-    }));
+    // ---- featured & limit ----
+    const filter = {};
+    if (sp.get("featured") === "true") filter.isFeatured = true;
+
+    let limit = parseInt(sp.get("limit") || "0", 10);
+    if (!Number.isFinite(limit) || limit <= 0) limit = 200;
+    limit = Math.min(limit, 50);
+
+    // ---- brand (comma-separated list supported) ----
+    const brandParam = sp.get("brand");
+    if (brandParam) {
+      const brands = brandParam.split(",").map((b) => b.trim()).filter(Boolean);
+      if (brands.length === 1) filter.brand = brands[0];
+      else if (brands.length > 1) filter.brand = { $in: brands };
+    }
+
+    // ---- price range (against effective price: discountPrice ?? price) ----
+    const minPrice = parseFloat(sp.get("minPrice") || "");
+    const maxPrice = parseFloat(sp.get("maxPrice") || "");
+    const hasMin = Number.isFinite(minPrice);
+    const hasMax = Number.isFinite(maxPrice);
+
+    // ---- category slug/name → include sub-categories too ----
+    const categoryParam = sp.get("category");
+    if (categoryParam) {
+      const catDoc = await Category.findOne({
+        $or: [
+          { slug: categoryParam.toLowerCase() },
+          { name: categoryParam },
+        ],
+      }).lean();
+
+      if (catDoc) {
+        // A real category document: match it + any children (sub-categories)
+        const children = await Category.find({ parentCategory: catDoc._id })
+          .select("name")
+          .lean();
+        const names = [catDoc.name, ...children.map((c) => c.name)];
+        filter.category = { $in: names };
+      } else {
+        // Fall back to plain name match (legacy data / default categories)
+        filter.category = categoryParam;
+      }
+    }
+
+    // ---- sorting ----
+    const sortParam = sp.get("sort"); // newest | price-asc | price-desc (default newest)
+
+    let products;
+    if (hasMin || hasMax) {
+      // Aggregation lets us filter by the *effective* (discounted) price
+      const conditions = [];
+      if (hasMin) conditions.push({ $gte: ["$$p", minPrice] });
+      if (hasMax) conditions.push({ $lte: ["$$p", maxPrice] });
+
+      const pipeline = [
+        { $match: filter },
+        { $addFields: { effectivePrice: { $ifNull: ["$discountPrice", "$price"] } } },
+        { $match: { $expr: { $and: conditions } } },
+      ];
+      if (sortParam === "price-asc") pipeline.push({ $sort: { effectivePrice: 1, createdAt: -1 } });
+      else if (sortParam === "price-desc") pipeline.push({ $sort: { effectivePrice: -1, createdAt: -1 } });
+      else pipeline.push({ $sort: { createdAt: -1 } });
+      pipeline.push({ $limit: limit });
+
+      products = await Product.aggregate(pipeline);
+    } else {
+      // No price filter — regular query; sort by discounted price in memory
+      // so the effective (sale) price is respected.
+      const all = await Product.find(filter).lean();
+      if (sortParam === "price-asc" || sortParam === "price-desc") {
+        all.sort((a, b) => {
+          const pa = a.discountPrice ?? a.price;
+          const pb = b.discountPrice ?? b.price;
+          return sortParam === "price-asc" ? pa - pb : pb - pa;
+        });
+      } else {
+        all.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      }
+      products = all.slice(0, limit);
+    }
+
+    const serializedProducts = products.map(serialize);
 
     return NextResponse.json({
       success: true,
@@ -92,7 +194,7 @@ export async function GET() {
   } catch (error) {
     console.error("Error fetching products:", error);
     return NextResponse.json(
-      { success: false, message: "প্রোডাক্ট লোড করা যায়নি", error: error.message },
+      { success: false, message: error?.message || "প্রোডাক্ট লোড করা যায়নি", error: error.message },
       { status: 500 }
     );
   }
@@ -202,7 +304,7 @@ export async function PUT(request) {
   } catch (error) {
     console.error("Error updating product:", error);
     return NextResponse.json(
-      { success: false, message: "প্রোডাক্ট আপডেট করা যায়নি" },
+      { success: false, message: error?.message || "প্রোডাক্ট আপডেট করা যায়নি" },
       { status: 500 }
     );
   }
@@ -242,7 +344,7 @@ export async function DELETE(request) {
   } catch (error) {
     console.error("Error deleting product:", error);
     return NextResponse.json(
-      { success: false, message: "প্রোডাক্ট মুছে ফেলা যায়নি" },
+      { success: false, message: error?.message || "প্রোডাক্ট মুছে ফেলা যায়নি" },
       { status: 500 }
     );
   }

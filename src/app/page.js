@@ -12,30 +12,23 @@ const fallbackCategories = [
     english: "Skincare",
     icon: "🧴",
     description: "ফেসওয়াশ, ক্রিম, সিরাম ও ময়েশ্চারাইজার",
-    href: "/shop?cat=skincare",
+    href: "/shop?category=skincare",
   },
   {
     name: "মেকআপ",
     english: "Makeup",
     icon: "💄",
     description: "লিপস্টিক, ফাউন্ডেশন, আইলাইনার ও ব্লাশ",
-    href: "/shop?cat=makeup",
+    href: "/shop?category=makeup",
   },
   {
     name: "হেয়ারকেয়ার",
     english: "Haircare",
     icon: "💇‍♀️",
     description: "শ্যাম্পু, হেয়ার অয়েল ও হেয়ার মাস্ক",
-    href: "/shop?cat=haircare",
+    href: "/shop?category=haircare",
   },
 ];
-
-const CATEGORY_BN = {
-  Skincare: "স্কিনকেয়ার",
-  Makeup: "মেকআপ",
-  Haircare: "হেয়ারকেয়ার",
-  Fragrance: "ফ্র্যাগরেন্স",
-};
 
 /** Format a number as Bangladeshi Taka, e.g. ৳1,200 */
 function formatBDT(amount) {
@@ -76,28 +69,35 @@ async function safeFetch(url) {
 }
 
 export default async function Home() {
-  // Server-side fetches — no client JS needed for initial load
+  // Phase 6: homepage pulls ONLY home-visible categories and featured products
   const [catData, prodData] = await Promise.all([
-    safeFetch(apiUrl("/api/categories")),
-    safeFetch(apiUrl("/api/products")),
+    safeFetch(apiUrl("/api/categories?homeVisible=true")),
+    safeFetch(apiUrl("/api/products?featured=true&limit=8")),
   ]);
 
-  // Dynamic categories (fall back to the hardcoded trio when DB is absent)
-  let categories = fallbackCategories;
-  if (catData?.success && Array.isArray(catData.categories) && catData.categories.length > 0) {
-    categories = catData.categories.map((c) => ({
-      name: CATEGORY_BN[c.name] || c.name,
-      english: c.name,
-      icon: c.icon || "🛍️",
-      description: "",
-      href: `/shop?cat=${encodeURIComponent(c.slug || c.name)}`,
-    }));
-  }
+  // Nested tree: [{ name, slug, icon, children: [...] }]
+  const homeTree =
+    catData?.success && Array.isArray(catData.tree) ? catData.tree : [];
 
-  // Top 4 products for the "জনপ্রিয় প্রোডাক্ট" section
-  const popular =
+  const hasDbCategories = homeTree.length > 0;
+  const categories = hasDbCategories
+    ? homeTree.map((c) => ({
+        name: c.name,
+        english: c.slug || c.name,
+        icon: c.icon || "🛍️",
+        description: "",
+        href: `/shop?category=${encodeURIComponent(c.slug || c.name)}`,
+        children: (c.children || []).map((ch) => ({
+          name: ch.name,
+          href: `/shop?category=${encodeURIComponent(ch.slug || ch.name)}`,
+        })),
+      }))
+    : fallbackCategories.map((c) => ({ ...c, children: [] }));
+
+  // Featured products for the "জনপ্রিয় প্রোডাক্ট" section (max 8)
+  const featured =
     prodData?.success && Array.isArray(prodData.products)
-      ? prodData.products.slice(0, 4)
+      ? prodData.products.slice(0, 8)
       : [];
 
   return (
@@ -137,33 +137,61 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Categories Section */}
+      {/* Categories Section — admin-controlled (isHomeVisible) */}
       <section className="mx-auto max-w-6xl px-4 py-16">
         <h2 className="mb-10 text-center text-3xl font-bold text-gray-900">
           জনপ্রিয় <span className="text-[#db2777]">ক্যাটাগরি</span>
         </h2>
-        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-          {categories.map((cat) => (
-            <Link
-              key={cat.english}
-              href={cat.href}
-              className="group rounded-2xl border border-pink-100 bg-white p-8 text-center shadow-sm transition-all hover:-translate-y-1 hover:border-[#db2777] hover:shadow-lg"
-            >
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-pink-100 text-3xl transition-colors group-hover:bg-[#db2777]">
-                <span>{cat.icon}</span>
+
+        {categories.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-pink-200 bg-pink-50 px-6 py-12 text-center">
+            <p className="text-gray-600">
+              🏷️ হোমপেজে দেখানোর জন্য কোনো ক্যাটাগরি নির্বাচন করা হয়নি।{" "}
+              <Link href="/admin" className="font-semibold text-[#db2777] hover:underline">
+                অ্যাডমিন প্যানেল
+              </Link>{" "}
+              থেকে &quot;হোমপেজে দেখান&quot; চালু করুন।
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            {categories.map((cat) => (
+              <div
+                key={cat.english}
+                className="group rounded-2xl border border-pink-100 bg-white p-8 text-center shadow-sm transition-all hover:-translate-y-1 hover:border-[#db2777] hover:shadow-lg"
+              >
+                <Link href={cat.href}>
+                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-pink-100 text-3xl transition-colors group-hover:bg-[#db2777]">
+                    <span>{cat.icon}</span>
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 group-hover:text-[#db2777]">
+                    {cat.name}
+                  </h3>
+                  {cat.description && (
+                    <p className="mt-2 text-sm text-gray-500">{cat.description}</p>
+                  )}
+                </Link>
+                {/* Sub-category quick links (nested system) */}
+                {cat.children.length > 0 && (
+                  <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+                    {cat.children.map((ch) => (
+                      <Link
+                        key={ch.href}
+                        href={ch.href}
+                        className="rounded-full bg-pink-50 px-2.5 py-1 text-xs text-[#9d174d] hover:bg-pink-100"
+                      >
+                        {ch.name}
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 group-hover:text-[#db2777]">
-                {cat.name}
-              </h3>
-              {cat.description && (
-                <p className="mt-2 text-sm text-gray-500">{cat.description}</p>
-              )}
-            </Link>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
-      {/* Popular Products Section */}
+      {/* Popular Products Section — admin-controlled (isFeatured) */}
       <section className="bg-white py-16">
         <div className="mx-auto max-w-6xl px-4">
           <div className="mb-10 flex items-end justify-between gap-4">
@@ -178,27 +206,27 @@ export default async function Home() {
             </Link>
           </div>
 
-          {popular.length === 0 ? (
+          {featured.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-pink-200 bg-pink-50 px-6 py-12 text-center">
               <p className="text-gray-600">
-                🛍️ এখনো কোনো প্রোডাক্ট যোগ করা হয়নি।{" "}
+                🛍️ এখনো কোনো ফিচারড প্রোডাক্ট নেই।{" "}
                 <Link href="/admin" className="font-semibold text-[#db2777] hover:underline">
                   অ্যাডমিন প্যানেল
                 </Link>{" "}
-                থেকে প্রোডাক্ট যোগ করুন।
+                থেকে প্রোডাক্টে &quot;ফিচারড&quot টগল চালু করুন।
               </p>
             </div>
           ) : (
             <>
               {/* Horizontal scroll on mobile */}
               <div className="flex gap-5 overflow-x-auto pb-4 snap-x md:hidden">
-                {popular.map((p) => (
+                {featured.map((p) => (
                   <ProductCard key={p._id} product={p} className="w-64 shrink-0 snap-start" />
                 ))}
               </div>
-              {/* Grid on tablet/desktop */}
-              <div className="hidden grid-cols-2 gap-6 md:grid lg:grid-cols-4">
-                {popular.map((p) => (
+              {/* Grid: 2 cols tablet, 4 cols desktop */}
+              <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 md:gap-6">
+                {featured.map((p) => (
                   <ProductCard key={p._id} product={p} className="" />
                 ))}
               </div>
@@ -224,37 +252,82 @@ export default async function Home() {
   );
 }
 
-/** Compact product card used in the "জনপ্রিয় প্রোডাক্ট" section */
+/**
+ * Product card per Phase 6 spec:
+ * aspect-[3/4] image, NEW badge (blue), SALE badge + discount % (red),
+ * brand in small uppercase gray, line-clamp-2 title, strikethrough old
+ * price + bold pink discounted price, out-of-stock overlay.
+ */
 function ProductCard({ product, className = "" }) {
+  const hasDiscount =
+    product.discountPrice != null && Number(product.discountPrice) < Number(product.price);
+  const discountPct = hasDiscount
+    ? Math.round(((product.price - product.discountPrice) / product.price) * 100)
+    : 0;
+
   return (
     <Link
       href="/shop"
-      className={`group overflow-hidden rounded-2xl border border-pink-100 bg-white shadow-sm transition-all hover:-translate-y-1 hover:border-[#db2777] hover:shadow-lg ${className}`}
+      className={`group relative flex flex-col overflow-hidden rounded-2xl border border-pink-100 bg-white shadow-sm transition-all hover:-translate-y-1 hover:border-[#db2777] hover:shadow-lg ${className}`}
     >
-      <div className="relative aspect-square w-full overflow-hidden bg-pink-50">
+      <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-pink-50">
         {product.image ? (
           <Image
             src={product.image}
             alt={product.name}
             fill
-            sizes="(max-width: 768px) 60vw, 25vw"
+            sizes="(max-width: 768px) 45vw, 25vw"
             className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full items-center justify-center text-4xl">💄</div>
         )}
-        <span className="absolute left-2 top-2 rounded-full bg-[#db2777]/90 px-2.5 py-1 text-xs font-semibold text-white">
-          {CATEGORY_BN[product.category] || product.category}
-        </span>
+
+        {/* Badges — top corner */}
+        <div className="absolute left-2 top-2 flex flex-col gap-1">
+          {product.isNew && (
+            <span className="rounded-full bg-blue-600 px-2.5 py-1 text-xs font-bold text-white shadow">
+              NEW
+            </span>
+          )}
+          {hasDiscount && (
+            <span className="rounded-full bg-red-600 px-2.5 py-1 text-xs font-bold text-white shadow">
+              SALE -{discountPct}%
+            </span>
+          )}
+        </div>
+
+        {/* Out of stock overlay */}
+        {!product.inStock && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+            <span className="rounded-full bg-white/90 px-4 py-1.5 text-sm font-bold text-red-600">
+              স্টক নেই
+            </span>
+          </div>
+        )}
       </div>
+
       <div className="p-4">
-        <h3 className="truncate font-semibold text-gray-900 group-hover:text-[#db2777]">
+        {product.brand && (
+          <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+            {product.brand}
+          </p>
+        )}
+        <h3 className="mt-0.5 line-clamp-2 min-h-[2.6em] text-sm font-semibold text-gray-900 group-hover:text-[#db2777] sm:text-base">
           {product.name}
         </h3>
-        <div className="mt-2 flex items-center justify-between">
-          <span className="text-lg font-bold text-[#db2777]">{formatBDT(product.price)}</span>
-          {!product.inStock && (
-            <span className="text-xs font-medium text-red-500">স্টক নেই</span>
+        <div className="mt-2 flex flex-wrap items-baseline gap-2">
+          {hasDiscount ? (
+            <>
+              <span className="text-lg font-extrabold text-[#db2777]">
+                {formatBDT(product.discountPrice)}
+              </span>
+              <span className="text-sm font-medium text-gray-400 line-through">
+                {formatBDT(product.price)}
+              </span>
+            </>
+          ) : (
+            <span className="text-lg font-bold text-[#db2777]">{formatBDT(product.price)}</span>
           )}
         </div>
       </div>

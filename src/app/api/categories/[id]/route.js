@@ -16,7 +16,7 @@ function serialize(category) {
 
 /**
  * PUT /api/categories/[id]
- * Updates an existing category. Body: { name?, slug?, icon? }
+ * Updates an existing category. Body: { name?, slug?, icon?, parentCategory?, isHomeVisible? }
  */
 export async function PUT(request, { params }) {
   try {
@@ -42,6 +42,38 @@ export async function PUT(request, { params }) {
       errors.slug = "Slug-এ শুধু ছোট হাতের অক্ষর, সংখ্যা ও ড্যাশ ব্যবহার করুন";
     }
 
+    // Phase 6 fields
+    const isHomeVisible = body?.isHomeVisible === true || body?.isHomeVisible === "true";
+    let parentCategory = null;
+    const parentRaw = body?.parentCategory;
+    if (parentRaw && parentRaw !== "null" && parentRaw !== "") {
+      if (!mongoose.Types.ObjectId.isValid(parentRaw)) {
+        errors.parentCategory = "অবৈধ প্যারেন্ট ক্যাটাগরি";
+      } else if (parentRaw === id) {
+        errors.parentCategory = "নিজেকেই প্যারেন্ট করা যাবে না";
+      } else {
+        const parentDoc = await Category.findById(parentRaw).lean();
+        if (!parentDoc) {
+          errors.parentCategory = "প্যারেন্ট ক্যাটাগরি পাওয়া যায়নি";
+        } else if (parentDoc.parentCategory) {
+          errors.parentCategory = "সাব-ক্যাটাগরির নিচে আর সাব-ক্যাটাগরি রাখা যাবে না";
+        } else {
+          parentCategory = parentDoc._id;
+        }
+      }
+    }
+
+    // A category that HAS children cannot itself become a sub-category
+    if (!errors.parentCategory && parentCategory) {
+      const childCount = await Category.countDocuments({ parentCategory: id });
+      if (childCount > 0) {
+        errors.parentCategory = `এই ক্যাটাগরিতে ${childCount}টি সাব-ক্যাটাগরি আছে — তাই একে সাব-ক্যাটাগরি করা যাবে না`;
+      }
+    }
+
+    // Sub-categories are never home-visible on their own
+    const finalHomeVisible = parentCategory ? false : isHomeVisible;
+
     if (Object.keys(errors).length > 0) {
       return NextResponse.json(
         { success: false, message: "ক্যাটেগরি তথ্যে সমস্যা আছে", errors },
@@ -66,7 +98,7 @@ export async function PUT(request, { params }) {
 
     const category = await Category.findByIdAndUpdate(
       id,
-      { name, slug, icon },
+      { name, slug, icon, parentCategory, isHomeVisible: finalHomeVisible },
       { new: true, runValidators: true }
     ).lean();
 
@@ -91,13 +123,13 @@ export async function PUT(request, { params }) {
         fieldErrors[field] = err.message;
       }
       return NextResponse.json(
-        { success: false, message: "ক্যাটেগরি সেভ করা যায়নি", errors: fieldErrors },
+        { success: false, message: error.message || "ক্যাটেগরি সেভ করা যায়নি", errors: fieldErrors },
         { status: 400 }
       );
     }
 
     return NextResponse.json(
-      { success: false, message: "ক্যাটেগরি আপডেট করা যায়নি" },
+      { success: false, message: error?.message || "ক্যাটেগরি আপডেট করা যায়নি" },
       { status: 500 }
     );
   }
@@ -126,6 +158,18 @@ export async function DELETE(request, { params }) {
       return NextResponse.json(
         { success: false, message: "ক্যাটেগরি পাওয়া যায়নি" },
         { status: 404 }
+      );
+    }
+
+    // Guard against orphaning sub-categories that belong to this category
+    const childCount = await Category.countDocuments({ parentCategory: id });
+    if (childCount > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `এই ক্যাটেগরিতে ${childCount}টি সাব-ক্যাটাগরি আছে — আগে সাব-ক্যাটাগরিগুলো মুছুন`,
+        },
+        { status: 409 }
       );
     }
 

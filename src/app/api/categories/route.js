@@ -16,20 +16,63 @@ function serialize(category) {
 }
 
 /**
+ * Build a nested tree from a flat category list:
+ * [{ ...main, children: [{ ...sub }, ...] }, ...]
+ * Orphaned children (parent deleted) are surfaced as top-level items.
+ */
+function nestCategories(flat) {
+  const byId = new Map(flat.map((c) => [c._id, { ...c, children: [] }]));
+  const roots = [];
+  for (const node of byId.values()) {
+    const parentId = node.parentCategory ? String(node.parentCategory) : null;
+    if (parentId && byId.has(parentId)) {
+      byId.get(parentId).children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+  return roots;
+}
+
+/**
  * GET /api/categories
  * Fetches all categories (sorted by creation date).
+ *   ?homeVisible=true → only MAIN categories flagged isHomeVisible, returned
+ *                        in nested form: [{ name: "Skincare", children: [...] }]
+ * Without the flag, returns the full nested tree as well (flat fields kept on
+ * each node so admin tables can still render them).
  */
-export async function GET() {
+export async function GET(request) {
   try {
     const conn = await dbConnect();
     if (!conn) return dbNotConfiguredResponse();
 
-    const categories = await Category.find({}).sort({ createdAt: 1 }).lean();
+    const wantHomeOnly = request.nextUrl.searchParams.get("homeVisible") === "true";
+
+    let categories;
+    if (wantHomeOnly) {
+      // Home-visible main categories + their children
+      const mains = await Category.find({ isHomeVisible: true, parentCategory: null })
+        .sort({ createdAt: 1 })
+        .lean();
+      const mainIds = mains.map((m) => m._id);
+      const children =
+        mainIds.length > 0
+          ? await Category.find({ parentCategory: { $in: mainIds } })
+              .sort({ createdAt: 1 })
+              .lean()
+          : [];
+      categories = [...mains, ...children].map(serialize);
+    } else {
+      const all = await Category.find({}).sort({ createdAt: 1 }).lean();
+      categories = all.map(serialize);
+    }
 
     return NextResponse.json({
       success: true,
       count: categories.length,
-      categories: categories.map(serialize),
+      categories,
+      tree: nestCategories(categories),
     });
   } catch (error) {
     console.error("Error fetching categories:", error);
@@ -41,9 +84,44 @@ export async function GET() {
 }
 
 /**
+ * Validate optional Phase 6 category fields (parentCategory / isHomeVisible).
+ * Returns { values } or { errors }.
+ */
+async function parseCategoryExtras(body) {
+  const errors = {};
+  const values = {};
+
+  // isHomeVisible — checkbox may arrive as boolean or string
+  values.isHomeVisible =
+    body?.isHomeVisible === true || body?.isHomeVisible === "true";
+
+  // parentCategory — "" / null means "main category"
+  const parent = body?.parentCategory;
+  if (!parent || parent === "null" || parent === "") {
+    values.parentCategory = null;
+  } else if (!mongoose.Types.ObjectId.isValid(parent)) {
+    errors.parentCategory = "অবৈধ প্যারেন্ট ক্যাটাগরি";
+  } else {
+    const parentDoc = await Category.findById(parent).lean();
+    if (!parentDoc) {
+      errors.parentCategory = "প্যারেন্ট ক্যাটাগরি পাওয়া যায়নি";
+    } else if (parentDoc.parentCategory) {
+      // Keep it simple: only two levels (main → sub)
+      errors.parentCategory = "সাব-ক্যাটাগরির নিচে আর সাব-ক্যাটাগরি রাখা যাবে না";
+    } else {
+      values.parentCategory = parentDoc._id;
+      // Sub-categories are never shown directly on the homepage grid
+      values.isHomeVisible = false;
+    }
+  }
+
+  return Object.keys(errors).length > 0 ? { errors } : { values };
+}
+
+/**
  * POST /api/categories
  * Creates a new category (used by the admin panel).
- * Body: { name, slug?, icon? }
+ * Body: { name, slug?, icon?, parentCategory?, isHomeVisible? }
  */
 export async function POST(request) {
   try {
@@ -70,6 +148,14 @@ export async function POST(request) {
     const conn = await dbConnect();
     if (!conn) return dbNotConfiguredResponse();
 
+    const extras = await parseCategoryExtras(body);
+    if (extras.errors) {
+      return NextResponse.json(
+        { success: false, message: "ক্যাটেগরি তথ্যে সমস্যা আছে", errors: extras.errors },
+        { status: 400 }
+      );
+    }
+
     // Friendly duplicate check before hitting the unique index
     const existing = await Category.findOne({ $or: [{ name }, { slug }] }).lean();
     if (existing) {
@@ -85,7 +171,7 @@ export async function POST(request) {
       );
     }
 
-    const category = await Category.create({ name, slug, icon });
+    const category = await Category.create({ name, slug, icon, ...extras.values });
 
     return NextResponse.json(
       {
@@ -104,7 +190,7 @@ export async function POST(request) {
         fieldErrors[field] = err.message;
       }
       return NextResponse.json(
-        { success: false, message: "ক্যাটেগরি সেভ করা যায়নি", errors: fieldErrors },
+        { success: false, message: error.message || "ক্যাটেগরি সেভ করা যায়নি", errors: fieldErrors },
         { status: 400 }
       );
     }
@@ -117,7 +203,7 @@ export async function POST(request) {
     }
 
     return NextResponse.json(
-      { success: false, message: "ক্যাটেগরি তৈরি করা যায়নি" },
+      { success: false, message: error?.message || "ক্যাটেগরি তৈরি করা যায়নি" },
       { status: 500 }
     );
   }

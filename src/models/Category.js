@@ -21,6 +21,18 @@ const CategorySchema = new mongoose.Schema(
       trim: true,
       default: "🛍️",
     },
+    // Phase 6 — nested categories & homepage visibility
+    parentCategory: {
+      // null = main category; ObjectId = sub-category of that main category
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+      default: null,
+    },
+    isHomeVisible: {
+      // Only main categories with this flag show on the homepage
+      type: Boolean,
+      default: false,
+    },
     createdAt: {
       type: Date,
       default: Date.now,
@@ -30,8 +42,21 @@ const CategorySchema = new mongoose.Schema(
 );
 
 // Prevent overwriting the model on hot reloads / repeated imports
-const Category =
-  mongoose.models.Category || mongoose.model("Category", CategorySchema);
+let Category = mongoose.models.Category;
+
+if (!Category) {
+  Category = mongoose.model("Category", CategorySchema);
+} else {
+  // Older compiled model may lack the new Phase 6 paths — add them.
+  const additions = {};
+  if (!Category.schema.paths.parentCategory) {
+    additions.parentCategory = { type: mongoose.Schema.Types.ObjectId, ref: "Category", default: null };
+  }
+  if (!Category.schema.paths.isHomeVisible) {
+    additions.isHomeVisible = { type: Boolean, default: false };
+  }
+  if (Object.keys(additions).length > 0) Category.schema.add(additions);
+}
 
 export default Category;
 

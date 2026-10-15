@@ -51,7 +51,48 @@ const emptyProductForm = {
   category: "Skincare",
   image: "",
   inStock: true,
+  // Phase 6 fields
+  brand: "",
+  discountPrice: "",
+  isFeatured: false,
+  isNew: false,
 };
+
+/** Normalize a product form for the API (numbers, empty discount → null) */
+function normalizeProductPayload(form) {
+  return {
+    ...form,
+    price: Number(form.price),
+    discountPrice:
+      form.discountPrice === "" || form.discountPrice === null || form.discountPrice === undefined
+        ? null
+        : Number(form.discountPrice),
+  };
+}
+
+/** Small pink toggle switch (Phase 6 admin forms) */
+function ToggleSwitch({ checked, onChange, label }) {
+  return (
+    <label className="flex items-center gap-3 cursor-pointer select-none">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+          checked ? "bg-[#db2777]" : "bg-gray-300"
+        }`}
+      >
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+            checked ? "translate-x-6" : "translate-x-1"
+          }`}
+        />
+      </button>
+      <span className="text-sm text-gray-700">{label}</span>
+    </label>
+  );
+}
 
 /** Format a number as Bangladeshi Taka, e.g. ৳1,200 */
 function formatBDT(amount) {
@@ -326,7 +367,7 @@ function ProductManager() {
       const res = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, price: Number(form.price) }),
+        body: JSON.stringify(normalizeProductPayload(form)),
       });
       const data = await res.json();
 
@@ -449,6 +490,33 @@ function ProductManager() {
             )}
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">ব্র্যান্ড *</label>
+            <input
+              value={form.brand}
+              onChange={updateForm("brand")}
+              placeholder="যেমন: Maybelline"
+              className="w-full px-3 py-2 rounded-lg border border-pink-200 focus:outline-none focus:ring-2 focus:ring-[#db2777]"
+            />
+            {fieldErrors.brand && <p className="text-red-600 text-xs mt-1">{fieldErrors.brand}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">ডিসকাউন্ট দাম (৳)</label>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={form.discountPrice}
+              onChange={updateForm("discountPrice")}
+              placeholder="ছাড় না থাকলে খালি রাখুন"
+              className="w-full px-3 py-2 rounded-lg border border-pink-200 focus:outline-none focus:ring-2 focus:ring-[#db2777]"
+            />
+            {fieldErrors.discountPrice && (
+              <p className="text-red-600 text-xs mt-1">{fieldErrors.discountPrice}</p>
+            )}
+          </div>
+
           <ImageUploadField
             value={form.image}
             error={fieldErrors.image}
@@ -463,6 +531,20 @@ function ProductManager() {
               onChange={updateForm("description")}
               placeholder="প্রোডাক্ট সম্পর্কে সংক্ষেপে লিখুন"
               className="w-full px-3 py-2 rounded-lg border border-pink-200 focus:outline-none focus:ring-2 focus:ring-[#db2777] resize-y"
+            />
+          </div>
+
+          {/* Phase 6 toggles */}
+          <div className="sm:col-span-2 flex flex-wrap items-center gap-x-8 gap-y-3 rounded-xl border border-pink-100 bg-pink-50/50 px-4 py-3">
+            <ToggleSwitch
+              checked={form.isFeatured}
+              onChange={(v) => setForm((prev) => ({ ...prev, isFeatured: v }))}
+              label="⭐ ফিচারড প্রোডাক্ট (হোমপেজে দেখাবে)"
+            />
+            <ToggleSwitch
+              checked={form.isNew}
+              onChange={(v) => setForm((prev) => ({ ...prev, isNew: v }))}
+              label="🆕 নতুন প্রোডাক্ট (NEW ব্যাজ)"
             />
           </div>
 
