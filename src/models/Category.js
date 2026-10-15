@@ -46,8 +46,9 @@ let Category = mongoose.models.Category;
 
 if (!Category) {
   Category = mongoose.model("Category", CategorySchema);
-} else {
-  // Older compiled model may lack the new Phase 6 paths — add them.
+} else if (!Category.schema.paths.parentCategory || !Category.schema.paths.isHomeVisible) {
+  // An older compiled model (e.g. from a previous hot reload) may lack the new
+  // Phase 6 paths — add them so queries/validations keep working.
   const additions = {};
   if (!Category.schema.paths.parentCategory) {
     additions.parentCategory = { type: mongoose.Schema.Types.ObjectId, ref: "Category", default: null };
@@ -55,7 +56,7 @@ if (!Category) {
   if (!Category.schema.paths.isHomeVisible) {
     additions.isHomeVisible = { type: Boolean, default: false };
   }
-  if (Object.keys(additions).length > 0) Category.schema.add(additions);
+  Category.schema.add(additions);
 }
 
 export default Category;

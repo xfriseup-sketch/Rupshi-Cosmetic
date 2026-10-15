@@ -71,15 +71,20 @@ let Product = mongoose.models.Product;
 
 if (!Product) {
   Product = mongoose.model("Product", ProductSchema);
-} else {
-  // Existing model (e.g. compiled from an older schema during hot reload) may
-  // lack the new Phase 6 paths — add them so queries/validations keep working.
+} else if (
+  !Product.schema.paths.isFeatured ||
+  !Product.schema.paths.isNew ||
+  !Product.schema.paths.discountPrice ||
+  !Product.schema.paths.brand
+) {
+  // An older compiled model (e.g. from a previous hot reload) may lack the new
+  // Phase 6 paths — add them so queries/validations keep working.
   const additions = {};
   if (!Product.schema.paths.isFeatured) additions.isFeatured = { type: Boolean, default: false };
   if (!Product.schema.paths.isNew) additions.isNew = { type: Boolean, default: false };
   if (!Product.schema.paths.discountPrice) additions.discountPrice = { type: Number, default: null, min: 0 };
   if (!Product.schema.paths.brand) additions.brand = { type: String, trim: true };
-  if (Object.keys(additions).length > 0) Product.schema.add(additions);
+  Product.schema.add(additions);
 }
 
 export default Product;
