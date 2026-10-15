@@ -706,6 +706,11 @@ function EditProductModal({ product, categories = [], onClose, onSave, saving })
     category: product.category || "Skincare",
     image: product.image || "",
     inStock: Boolean(product.inStock),
+    // Phase 6 fields (legacy products may not have them yet)
+    brand: product.brand || "",
+    discountPrice: product.discountPrice ?? "",
+    isFeatured: Boolean(product.isFeatured),
+    isNew: Boolean(product.isNew),
   });
   const [fieldErrors, setFieldErrors] = useState({});
   const [errorText, setErrorText] = useState("");
@@ -719,7 +724,14 @@ function EditProductModal({ product, categories = [], onClose, onSave, saving })
     e.preventDefault();
     setFieldErrors({});
     setErrorText("");
-    const result = await onSave({ ...form, price: Number(form.price) });
+    const result = await onSave({
+      ...form,
+      price: Number(form.price),
+      discountPrice:
+        form.discountPrice === "" || form.discountPrice === null || form.discountPrice === undefined
+          ? null
+          : Number(form.discountPrice),
+    });
     if (result && !result.success) {
       setFieldErrors(result.errors || {});
       setErrorText(result.message || "আপডেট করা যায়নি");
@@ -792,6 +804,38 @@ function EditProductModal({ product, categories = [], onClose, onSave, saving })
             </div>
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">ব্র্যান্ড *</label>
+              <input
+                value={form.brand}
+                onChange={update("brand")}
+                placeholder="যেমন: Maybelline"
+                className="w-full px-3 py-2 rounded-lg border border-pink-200 focus:outline-none focus:ring-2 focus:ring-[#db2777]"
+              />
+              {fieldErrors.brand && (
+                <p className="text-red-600 text-xs mt-1">{fieldErrors.brand}</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                ডিসকাউন্ট দাম (৳)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={form.discountPrice}
+                onChange={update("discountPrice")}
+                placeholder="ছাড় না থাকলে খালি রাখুন"
+                className="w-full px-3 py-2 rounded-lg border border-pink-200 focus:outline-none focus:ring-2 focus:ring-[#db2777]"
+              />
+              {fieldErrors.discountPrice && (
+                <p className="text-red-600 text-xs mt-1">{fieldErrors.discountPrice}</p>
+              )}
+            </div>
+          </div>
+
           <ImageUploadField
             value={form.image}
             error={fieldErrors.image}
@@ -805,6 +849,20 @@ function EditProductModal({ product, categories = [], onClose, onSave, saving })
               value={form.description}
               onChange={update("description")}
               className="w-full px-3 py-2 rounded-lg border border-pink-200 focus:outline-none focus:ring-2 focus:ring-[#db2777] resize-y"
+            />
+          </div>
+
+          {/* Phase 6 toggles */}
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-3 rounded-xl border border-pink-100 bg-pink-50/50 px-4 py-3">
+            <ToggleSwitch
+              checked={form.isFeatured}
+              onChange={(v) => setForm((prev) => ({ ...prev, isFeatured: v }))}
+              label="⭐ ফিচারড প্রোডাক্ট (হোমপেজে দেখাবে)"
+            />
+            <ToggleSwitch
+              checked={form.isNew}
+              onChange={(v) => setForm((prev) => ({ ...prev, isNew: v }))}
+              label="🆕 নতুন প্রোডাক্ট (NEW ব্যাজ)"
             />
           </div>
 

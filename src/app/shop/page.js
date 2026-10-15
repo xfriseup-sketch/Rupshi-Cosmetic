@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
@@ -47,7 +47,23 @@ function nestCategories(flat) {
 /* Page                                                                */
 /* ------------------------------------------------------------------ */
 
+/** Next.js requires useSearchParams() to sit inside a <Suspense> boundary. */
 export default function ShopPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white">
+          <Navbar active="shop" />
+          <p className="py-24 text-center text-gray-500 animate-pulse">লোড হচ্ছে...</p>
+        </div>
+      }
+    >
+      <ShopContent />
+    </Suspense>
+  );
+}
+
+function ShopContent() {
   const { addToCart } = useCart();
   const router = useRouter();
   const pathname = usePathname();

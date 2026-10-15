@@ -13,7 +13,55 @@ import { useCallback, useEffect, useState } from "react";
  *   (PUT/DELETE). Handles 503 (DB not configured) gracefully.
  */
 
-const emptyForm = { name: "", icon: "🛍️", slug: "" };
+/** Small pink toggle switch (used in admin forms) */
+function ToggleSwitch({ checked, onChange, label }) {
+  return (
+    <label className="flex items-center gap-2 cursor-pointer select-none whitespace-nowrap">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+          checked ? "bg-[#db2777]" : "bg-gray-300"
+        }`}
+      >
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+            checked ? "translate-x-6" : "translate-x-1"
+          }`}
+        />
+      </button>
+      <span className="text-xs text-gray-700">{label}</span>
+    </label>
+  );
+}
+
+const emptyForm = { name: "", icon: "🛍️", slug: "", parentCategory: "", isHomeVisible: false };
+
+/** Flatten the category list so main categories come first, each followed by its children (indented). */
+function buildDisplayOrder(categories) {
+  const byId = new Map(categories.map((c) => [c._id, c]));
+  const childIds = new Set(
+    categories.filter((c) => c.parentCategory && byId.has(String(c.parentCategory))).map((c) => c._id)
+  );
+  const roots = categories.filter(
+    (c) => !c.parentCategory || !byId.has(String(c.parentCategory))
+  );
+  const childrenOf = (id) => categories.filter((c) => String(c.parentCategory || "") === String(id));
+
+  const out = [];
+  const visit = (cat, depth) => {
+    out.push({ cat, depth });
+    childrenOf(cat._id).forEach((child) => visit(child, Math.min(depth + 1, 3)));
+  };
+  roots.forEach((r) => visit(r, 0));
+  // Orphans whose parent flag exists but wasn't in the list — append at root level.
+  categories
+    .filter((c) => !out.some((o) => o.cat._id === c._id) && !childIds.has(c._id))
+    .forEach((c) => visit(c, 0));
+  return out;
+}
 
 export default function CategoryManager() {
   const [categories, setCategories] = useState([]);
@@ -71,6 +119,8 @@ export default function CategoryManager() {
       } else {
         // Duplicate ("Category exists") and validation errors come back here
         setMessage({ type: "error", text: data.message || "ক্যাটেগরি যোগ করা যায়নি" });
+        // Refresh the list so locally-added rows always match the DB.
+        fetchCategories();
       }
     } catch {
       setMessage({ type: "error", text: "সার্ভারের সাথে সংযোগ হয়নি" });
@@ -82,7 +132,13 @@ export default function CategoryManager() {
   /* ------------------------------ edit ----------------------------- */
   const startEdit = (cat) => {
     setEditingId(cat._id);
-    setEditForm({ name: cat.name, icon: cat.icon || "🛍️", slug: cat.slug || "" });
+    setEditForm({
+      name: cat.name,
+      icon: cat.icon || "🛍️",
+      slug: cat.slug || "",
+      parentCategory: cat.parentCategory ? String(cat.parentCategory) : "",
+      isHomeVisible: Boolean(cat.isHomeVisible),
+    });
     setMessage(null);
   };
 
@@ -139,6 +195,13 @@ export default function CategoryManager() {
   const inputClass =
     "w-full px-3 py-2 rounded-lg border border-pink-200 focus:outline-none focus:ring-2 focus:ring-[#db2777]";
 
+  // Only MAIN categories (parentCategory is null) can be selected as a parent.
+  const mainCategories = categories.filter((c) => !c.parentCategory);
+  // In the edit dropdown, exclude the category being edited itself.
+  const editableParents = mainCategories.filter((c) => c._id !== editingId);
+  // Flatten list so children render right under their parent, indented.
+  const displayRows = buildDisplayOrder(categories);
+
   return (
     <div>
       <h2 className="text-lg font-bold text-gray-800 mb-4">
@@ -162,7 +225,7 @@ export default function CategoryManager() {
         onSubmit={handleCreate}
         className="grid grid-cols-1 sm:grid-cols-12 gap-3 bg-pink-50/60 border border-pink-100 rounded-xl p-4 mb-6"
       >
-        <div className="sm:col-span-5">
+        <div className="sm:col-span-4">
           <label className="block text-xs font-medium text-gray-600 mb-1">ক্যাটেগরির নাম *</label>
           <input
             required
@@ -183,6 +246,33 @@ export default function CategoryManager() {
           />
         </div>
         <div className="sm:col-span-3">
+          <label className="block text-xs font-medium text-gray-600 mb-1">প্যারেন্ট ক্যাটাগরি</label>
+          <select
+            value={form.parentCategory}
+            onChange={(e) => {
+              const v = e.target.value;
+              // Sub-categories can never be home-visible — turn the toggle off.
+              setForm((p) => ({ ...p, parentCategory: v, isHomeVisible: v ? false : p.isHomeVisible }));
+            }}
+            className={`${inputClass} bg-white`}
+          >
+            <option value="">কোনোটি না (মেইন ক্যাটাগরি)</option>
+            {mainCategories.map((c) => (
+              <option key={c._id} value={c._id}>
+                {c.icon ? `${c.icon} ` : ""}
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="sm:col-span-3 flex items-end pb-1">
+          <ToggleSwitch
+            checked={form.isHomeVisible && !form.parentCategory}
+            onChange={(v) => setForm((p) => ({ ...p, isHomeVisible: v }))}
+            label="🏠 হোমপেজে দেখান"
+          />
+        </div>
+        <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-gray-600 mb-1">
             Slug <span className="text-gray-400">(ঐচ্ছিক)</span>
           </label>
@@ -226,14 +316,16 @@ export default function CategoryManager() {
                 <th className="px-4 py-3 font-semibold">আইকন</th>
                 <th className="px-4 py-3 font-semibold">নাম</th>
                 <th className="px-4 py-3 font-semibold">Slug</th>
+                <th className="px-4 py-3 font-semibold">প্যারেন্ট</th>
+                <th className="px-4 py-3 font-semibold">হোম</th>
                 <th className="px-4 py-3 font-semibold text-right">অ্যাকশন</th>
               </tr>
             </thead>
             <tbody>
-              {categories.map((cat) =>
+              {displayRows.map(({ cat, depth }) =>
                 editingId === cat._id ? (
                   <tr key={cat._id} className="border-t border-pink-100 bg-pink-50/50">
-                    <td colSpan={4} className="px-4 py-3">
+                    <td colSpan={6} className="px-4 py-3">
                       <form onSubmit={handleUpdate} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
                         <div className="sm:col-span-2">
                           <label className="block text-xs text-gray-500 mb-0.5">আইকন</label>
@@ -244,7 +336,7 @@ export default function CategoryManager() {
                             className={`${inputClass} text-center`}
                           />
                         </div>
-                        <div className="sm:col-span-4">
+                        <div className="sm:col-span-3">
                           <label className="block text-xs text-gray-500 mb-0.5">নাম *</label>
                           <input
                             required
@@ -254,15 +346,37 @@ export default function CategoryManager() {
                           />
                         </div>
                         <div className="sm:col-span-3">
-                          <label className="block text-xs text-gray-500 mb-0.5">Slug</label>
-                          <input
-                            dir="ltr"
-                            value={editForm.slug}
-                            onChange={(e) => setEditForm((p) => ({ ...p, slug: e.target.value }))}
-                            className={inputClass}
+                          <label className="block text-xs text-gray-500 mb-0.5">প্যারেন্ট ক্যাটাগরি</label>
+                          <select
+                            value={editForm.parentCategory}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              // Sub-categories can never be home-visible — turn the toggle off.
+                              setEditForm((p) => ({
+                                ...p,
+                                parentCategory: v,
+                                isHomeVisible: v ? false : p.isHomeVisible,
+                              }));
+                            }}
+                            className={`${inputClass} bg-white`}
+                          >
+                            <option value="">কোনোটি না (মেইন ক্যাটাগরি)</option>
+                            {editableParents.map((c) => (
+                              <option key={c._id} value={c._id}>
+                                {c.icon ? `${c.icon} ` : ""}
+                                {c.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="sm:col-span-2 flex items-end pb-1">
+                          <ToggleSwitch
+                            checked={editForm.isHomeVisible && !editForm.parentCategory}
+                            onChange={(v) => setEditForm((p) => ({ ...p, isHomeVisible: v }))}
+                            label="🏠 হোম"
                           />
                         </div>
-                        <div className="sm:col-span-3 flex gap-2 justify-end">
+                        <div className="sm:col-span-2 flex gap-2 justify-end">
                           <button
                             type="button"
                             onClick={() => setEditingId(null)}
@@ -284,9 +398,32 @@ export default function CategoryManager() {
                 ) : (
                   <tr key={cat._id} className="border-t border-pink-100 hover:bg-pink-50/50">
                     <td className="px-4 py-3 text-2xl">{cat.icon || "🛍️"}</td>
-                    <td className="px-4 py-3 font-medium text-gray-800">{cat.name}</td>
+                    <td
+                      className="px-4 py-3 font-medium text-gray-800"
+                      style={{ paddingInlineStart: `${1 + depth * 1.75}rem` }}
+                    >
+                      {depth > 0 && (
+                        <span className="text-gray-400 ml-1" aria-hidden="true">
+                          └
+                        </span>
+                      )}{" "}
+                      {cat.name}
+                      {depth === 0 && cat.children?.length > 0 ? null : null}
+                    </td>
                     <td className="px-4 py-3 text-gray-500 font-mono text-xs" dir="ltr">
                       {cat.slug}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 text-xs">
+                      {depth > 0 ? mainCategories.find((m) => m._id === String(cat.parentCategory))?.name || "—" : "— (মেইন)"}
+                    </td>
+                    <td className="px-4 py-3">
+                      {cat.isHomeVisible && !cat.parentCategory ? (
+                        <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          ✓ দেখাচ্ছে
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">✗</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       <button
