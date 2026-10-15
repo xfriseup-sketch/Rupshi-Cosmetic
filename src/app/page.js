@@ -6,30 +6,6 @@ import Navbar from "@/components/Navbar";
 const HERO_BG =
   "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1920&q=80";
 
-const fallbackCategories = [
-  {
-    name: "স্কিনকেয়ার",
-    english: "Skincare",
-    icon: "🧴",
-    description: "ফেসওয়াশ, ক্রিম, সিরাম ও ময়েশ্চারাইজার",
-    href: "/shop?category=skincare",
-  },
-  {
-    name: "মেকআপ",
-    english: "Makeup",
-    icon: "💄",
-    description: "লিপস্টিক, ফাউন্ডেশন, আইলাইনার ও ব্লাশ",
-    href: "/shop?category=makeup",
-  },
-  {
-    name: "হেয়ারকেয়ার",
-    english: "Haircare",
-    icon: "💇‍♀️",
-    description: "শ্যাম্পু, হেয়ার অয়েল ও হেয়ার মাস্ক",
-    href: "/shop?category=haircare",
-  },
-];
-
 /** Format a number as Bangladeshi Taka, e.g. ৳1,200 */
 function formatBDT(amount) {
   return `৳${Number(amount || 0).toLocaleString("en-BD")}`;
@@ -75,24 +51,22 @@ export default async function Home() {
     safeFetch(apiUrl("/api/products?featured=true&limit=8")),
   ]);
 
-  // Nested tree: [{ name, slug, icon, children: [...] }]
+  // Nested tree: [{ name, slug, icon, children: [...] }] — ONLY categories
+  // with isHomeVisible === true (admin-controlled via "হোমপেজে দেখান")
   const homeTree =
     catData?.success && Array.isArray(catData.tree) ? catData.tree : [];
 
-  const hasDbCategories = homeTree.length > 0;
-  const categories = hasDbCategories
-    ? homeTree.map((c) => ({
-        name: c.name,
-        english: c.slug || c.name,
-        icon: c.icon || "🛍️",
-        description: "",
-        href: `/shop?category=${encodeURIComponent(c.slug || c.name)}`,
-        children: (c.children || []).map((ch) => ({
-          name: ch.name,
-          href: `/shop?category=${encodeURIComponent(ch.slug || ch.name)}`,
-        })),
-      }))
-    : fallbackCategories.map((c) => ({ ...c, children: [] }));
+  const categories = homeTree.map((c) => ({
+    name: c.name,
+    english: c.slug || c.name,
+    icon: c.icon || "🛍️",
+    description: "",
+    href: `/shop?category=${encodeURIComponent(c.slug || c.name)}`,
+    children: (c.children || []).map((ch) => ({
+      name: ch.name,
+      href: `/shop?category=${encodeURIComponent(ch.slug || ch.name)}`,
+    })),
+  }));
 
   // Featured products for the "জনপ্রিয় প্রোডাক্ট" section (max 8)
   const featured =
@@ -145,8 +119,8 @@ export default async function Home() {
 
         {categories.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-pink-200 bg-pink-50 px-6 py-12 text-center">
-            <p className="text-gray-600">
-              🏷️ হোমপেজে দেখানোর জন্য কোনো ক্যাটাগরি নির্বাচন করা হয়নি।{" "}
+            <p className="text-lg text-gray-700">
+              🏷️ এখনো কোনো ক্যাটাগরি যোগ করা হয়নি।{" "}
               <Link href="/admin" className="font-semibold text-[#db2777] hover:underline">
                 অ্যাডমিন প্যানেল
               </Link>{" "}
@@ -154,17 +128,17 @@ export default async function Home() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
             {categories.map((cat) => (
               <div
                 key={cat.english}
-                className="group rounded-2xl border border-pink-100 bg-white p-8 text-center shadow-sm transition-all hover:-translate-y-1 hover:border-[#db2777] hover:shadow-lg"
+                className="group rounded-2xl border border-pink-100 bg-white p-6 text-center shadow-sm transition-all hover:-translate-y-1 hover:border-[#db2777] hover:shadow-lg sm:p-8"
               >
                 <Link href={cat.href}>
                   <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-pink-100 text-3xl transition-colors group-hover:bg-[#db2777]">
                     <span>{cat.icon}</span>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 group-hover:text-[#db2777]">
+                  <h3 className="text-lg font-semibold text-gray-900 group-hover:text-[#db2777] sm:text-xl">
                     {cat.name}
                   </h3>
                   {cat.description && (
@@ -208,32 +182,26 @@ export default async function Home() {
 
           {featured.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-pink-200 bg-pink-50 px-6 py-12 text-center">
-              <p className="text-gray-600">
+              <p className="text-lg text-gray-700">
                 🛍️ এখনো কোনো ফিচারড প্রোডাক্ট নেই।{" "}
                 <Link href="/admin" className="font-semibold text-[#db2777] hover:underline">
                   অ্যাডমিন প্যানেল
                 </Link>{" "}
-                থেকে প্রোডাক্টে &quot;ফিচারড&quot টগল চালু করুন।
+                থেকে প্রোডাক্টে &quot;ফিচারড&quot; টগল চালু করুন।
               </p>
             </div>
           ) : (
             <>
-              {/* Horizontal scroll on mobile */}
-              <div className="flex gap-5 overflow-x-auto pb-4 snap-x md:hidden">
-                {featured.map((p) => (
-                  <ProductCard key={p._id} product={p} className="w-64 shrink-0 snap-start" />
-                ))}
-              </div>
-              {/* Grid: 2 cols tablet, 4 cols desktop */}
-              <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 md:gap-6">
+              {/* Grid: 2 cols mobile, 3 cols tablet, 4 cols desktop */}
+              <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
                 {featured.map((p) => (
                   <ProductCard key={p._id} product={p} className="" />
                 ))}
               </div>
-              <div className="mt-6 text-center sm:hidden">
+              <div className="mt-8 text-center">
                 <Link
                   href="/shop"
-                  className="inline-block rounded-full bg-[#db2777] px-6 py-2.5 text-sm font-semibold text-white"
+                  className="inline-block rounded-full bg-[#db2777] px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#9d174d]"
                 >
                   সব প্রোডাক্ট দেখো
                 </Link>
