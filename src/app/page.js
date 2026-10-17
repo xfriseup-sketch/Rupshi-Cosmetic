@@ -78,25 +78,24 @@ export default async function Home() {
       <Navbar active="home" />
 
       {/* ────────────────────────────────────────────────
-          1. HERO SECTION — soft pink gradient banner
+          1. HERO SECTION — Phase 7.5 fashion-store redesign
+             Soft pink gradient (#fdf2f8 → #fce7f3), centered content
       ──────────────────────────────────────────────── */}
-      <section className="relative flex min-h-[300px] items-center justify-center overflow-hidden bg-gradient-to-br from-pink-50 via-pink-100 to-rose-200 md:min-h-[500px]">
+      <section className="relative flex min-h-[400px] items-center justify-center overflow-hidden bg-gradient-to-br from-[#fdf2f8] via-[#fce7f3] to-[#fdf2f8] md:min-h-[600px]">
         {/* Decorative soft blobs */}
         <div className="pointer-events-none absolute -left-16 -top-16 h-56 w-56 rounded-full bg-pink-200/60 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-20 -right-10 h-64 w-64 rounded-full bg-rose-300/50 blur-3xl" />
 
-        <div className="relative mx-auto max-w-3xl px-4 py-12 text-center sm:py-16">
-          <h1 className="text-3xl font-extrabold leading-tight text-gray-800 sm:text-4xl md:text-5xl">
-            আপনার সৌন্দর্যের যত্নে{" "}
-            <span style={{ color: PINK }}>রূপসী</span>
+        <div className="relative mx-auto max-w-4xl px-4 py-12 text-center sm:py-16">
+          <h1 className="text-5xl font-bold leading-tight text-gray-900 md:text-7xl">
+            আপনার সৌন্দর্যের যত্নে রূপসী
           </h1>
-          <p className="mx-auto mt-4 max-w-xl text-base text-gray-500 sm:text-lg md:text-xl">
+          <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 md:text-xl">
             স্কিনকেয়ার, মেকআপ ও হেয়ারকেয়ারের সেরা কালেকশন
           </p>
           <Link
             href="/shop"
-            className="mt-8 inline-flex min-h-12 items-center justify-center rounded-full px-8 py-3 text-base font-semibold text-white shadow-lg transition-transform hover:scale-105"
-            style={{ backgroundColor: PINK }}
+            className="mt-8 inline-flex min-h-12 items-center justify-center rounded-full bg-pink-600 px-10 py-4 text-base font-semibold text-white shadow-lg transition-all duration-300 hover:scale-105 hover:bg-pink-700"
           >
             এখনই কিনুন
           </Link>
@@ -108,7 +107,7 @@ export default async function Home() {
       ──────────────────────────────────────────────── */}
       <section className="bg-gray-50 py-16 md:py-20">
         <div className="mx-auto max-w-6xl px-4">
-          <h2 className="mb-8 text-center text-2xl font-bold text-gray-800 sm:text-3xl">
+          <h2 className="mb-10 text-center text-3xl font-bold text-gray-800">
             আমাদের ক্যাটাগরি
           </h2>
 
@@ -131,17 +130,14 @@ export default async function Home() {
               {categories.map((cat) => (
                 <div
                   key={cat.english}
-                  className="group rounded-xl bg-white p-6 text-center shadow-sm transition-all duration-300 hover:shadow-md"
+                  className="group rounded-2xl bg-white p-8 text-center shadow-sm transition-all duration-300 hover:shadow-xl"
                 >
                   <Link href={cat.href}>
-                    <div className="mb-3 text-4xl">{cat.icon}</div>
-                    <h3 className="font-bold text-gray-800 group-hover:text-[#ec4899]">
+                    <div className="mb-4 text-5xl">{cat.icon}</div>
+                    <h3 className="text-lg font-bold text-gray-800 group-hover:text-[#ec4899]">
                       {cat.name}
                     </h3>
-                    <p
-                      className="mt-2 text-sm font-medium"
-                      style={{ color: PINK }}
-                    >
+                    <p className="mt-2 text-sm font-medium text-pink-600 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
                       দেখুন →
                     </p>
                   </Link>
