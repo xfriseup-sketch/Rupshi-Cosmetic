@@ -110,19 +110,21 @@ export default async function Home() {
     <main className="min-h-screen bg-white text-gray-800">
 
       {/* ────────────────────────────────────────────────
-          1. HERO SECTION — Phase 7.5 fashion-store redesign
-             Soft pink gradient (#fdf2f8 → #fce7f3), centered content
+          1. HERO SECTION — Phase 7.6 Step 3
+             Custom hero image (/images/hero-banner.png) with dark overlay,
+             white centered content, fade-up animation on load
       ──────────────────────────────────────────────── */}
-      <section className="relative flex min-h-[400px] items-center justify-center overflow-hidden bg-gradient-to-br from-[#fdf2f8] via-[#fce7f3] to-[#fdf2f8] md:min-h-[600px]">
-        {/* Decorative soft blobs */}
-        <div className="pointer-events-none absolute -left-16 -top-16 h-56 w-56 rounded-full bg-pink-200/60 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-20 -right-10 h-64 w-64 rounded-full bg-rose-300/50 blur-3xl" />
+      <section className="relative flex min-h-[400px] items-center justify-center overflow-hidden bg-cover bg-center md:min-h-[600px]" style={{ backgroundImage: "url('/images/hero-banner.png')" }}>
+        {/* Dark overlay so white text stays readable */}
+        <div className="absolute inset-0 bg-black/30" />
+        {/* Soft pink tint at the edges for brand consistency */}
+        <div className="absolute inset-0 bg-gradient-to-br from-pink-900/20 via-transparent to-pink-700/20" />
 
-        <div className="relative mx-auto max-w-4xl px-4 py-12 text-center sm:py-16">
-          <h1 className="text-5xl font-bold leading-tight text-gray-900 md:text-7xl">
+        <div className="animate-fade-up relative mx-auto max-w-4xl px-4 py-12 text-center sm:py-16">
+          <h1 className="text-5xl font-bold leading-tight text-white drop-shadow-lg md:text-7xl">
             আপনার সৌন্দর্যের যত্নে রূপসী
           </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 md:text-xl">
+          <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-100 drop-shadow md:text-xl">
             স্কিনকেয়ার, মেকআপ ও হেয়ারকেয়ারের সেরা কালেকশন
           </p>
           <Link

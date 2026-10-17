@@ -32,11 +32,16 @@ module.exports = {
           "70%": { transform: "scale(1.1)" },
           "100%": { transform: "scale(1)", opacity: "1" },
         },
+        "fade-up": {
+          "0%": { opacity: "0", transform: "translateY(24px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
       },
       animation: {
         "toast-in": "toast-in 0.3s ease-out",
         "confetti-fall": "confetti-fall 4s linear infinite",
         "pop-in": "pop-in 0.5s ease-out both",
+        "fade-up": "fade-up 0.8s ease-out both",
       },
     },
   },
