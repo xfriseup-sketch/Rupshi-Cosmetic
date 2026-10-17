@@ -30,6 +30,8 @@ async function parseProductPayload(body) {
   // Phase 6 flags
   const isFeatured = Boolean(body?.isFeatured);
   const isNew = Boolean(body?.isNew);
+  // Phase 7.6 — "হট অফার" homepage section flag
+  const isHotOffer = Boolean(body?.isHotOffer);
   let discountPrice = null;
   if (body?.discountPrice !== undefined && body?.discountPrice !== null && body?.discountPrice !== "") {
     discountPrice = Number(body.discountPrice);
@@ -73,7 +75,7 @@ async function parseProductPayload(body) {
   if (Object.keys(errors).length > 0) return { errors };
 
   return {
-    data: { name, description, price, category, image, inStock, brand, isFeatured, isNew, discountPrice },
+    data: { name, description, price, category, image, inStock, brand, isFeatured, isNew, isHotOffer, discountPrice },
   };
 }
 
@@ -89,6 +91,7 @@ function serialize(product) {
  * GET /api/products
  * Fetches products from MongoDB with Phase 6 filtering support:
  *   ?featured=true        → only isFeatured products (homepage section)
+ *   ?hotOffer=true        → only isHotOffer products (Phase 7.6 homepage section)
  *   ?limit=N              → cap result count (default: all, max 50)
  *   ?brand=X              → single brand or comma-separated brands
  *   ?minPrice=Y&maxPrice=Z→ effective price range (uses discountPrice when set)
@@ -120,6 +123,8 @@ export async function GET(request) {
 
     // ---- featured & limit ----
     if (sp.get("featured") === "true") filter.isFeatured = true;
+    // Phase 7.6: hot-offer filter for the homepage "হট অফার" section
+    if (sp.get("hotOffer") === "true") filter.isHotOffer = true;
 
     let limit = parseInt(sp.get("limit") || "0", 10);
     if (!Number.isFinite(limit) || limit <= 0) limit = 200;

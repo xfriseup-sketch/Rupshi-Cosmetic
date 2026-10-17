@@ -143,6 +143,7 @@ const emptyProductForm = {
   discountPrice: "",
   isFeatured: false,
   isNew: false,
+  isHotOffer: false,
 };
 
 /** Normalize a product form for the API (numbers, empty discount → null) */
@@ -636,6 +637,11 @@ function ProductManager() {
               onChange={(v) => setForm((prev) => ({ ...prev, isNew: v }))}
               label="🆕 নতুন প্রোডাক্ট (NEW ব্যাজ)"
             />
+            <ToggleSwitch
+              checked={form.isHotOffer}
+              onChange={(v) => setForm((prev) => ({ ...prev, isHotOffer: v }))}
+              label="🔥 হট অফার (হোমপেজে দেখাবে)"
+            />
           </div>
 
           <div className="flex items-center justify-between sm:col-span-2">
@@ -802,6 +808,7 @@ function EditProductModal({ product, categories = [], categoryOptions = [], onCl
     discountPrice: product.discountPrice ?? "",
     isFeatured: Boolean(product.isFeatured),
     isNew: Boolean(product.isNew),
+    isHotOffer: Boolean(product.isHotOffer),
   });
   const [fieldErrors, setFieldErrors] = useState({});
   const [errorText, setErrorText] = useState("");
@@ -956,6 +963,11 @@ function EditProductModal({ product, categories = [], categoryOptions = [], onCl
               checked={form.isNew}
               onChange={(v) => setForm((prev) => ({ ...prev, isNew: v }))}
               label="🆕 নতুন প্রোডাক্ট (NEW ব্যাজ)"
+            />
+            <ToggleSwitch
+              checked={form.isHotOffer}
+              onChange={(v) => setForm((prev) => ({ ...prev, isHotOffer: v }))}
+              label="🔥 হট অফার (হোমপেজে দেখাবে)"
             />
           </div>
 

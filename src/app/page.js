@@ -10,6 +10,14 @@ function formatBDT(amount) {
   return `৳${Number(amount || 0).toLocaleString("en-BD")}`;
 }
 
+/** Trust bar items (cosmetic-store focused, Bengali + English subtitle) */
+const TRUST_ITEMS = [
+  { icon: "✨", title: "উন্নত মানের উপাদান", sub: "Premium Ingredients" },
+  { icon: "🛡️", title: "২ বছরের ওয়ারেন্টি", sub: "Warranty Protection" },
+  { icon: "🚚", title: "১৫০০৳+ অর্ডারে ফ্রি ডেলিভারি", sub: "Free Shipping over ১৫০০৳" },
+  { icon: "💬", title: "২৪/৭ সাপোর্ট", sub: "Dedicated Support" },
+];
+
 // Homepage shows live categories/products from MongoDB — render per request
 // (also avoids build-time fetch attempts when the DB is not yet configured).
 export const dynamic = "force-dynamic";
@@ -44,9 +52,11 @@ async function safeFetch(url) {
 }
 
 export default async function Home() {
-  // Phase 6: homepage pulls ONLY home-visible categories and featured products
-  const [catData, prodData] = await Promise.all([
+  // Phase 6/7.6: homepage pulls ONLY home-visible categories, hot offers and
+  // featured products from MongoDB — all admin-controlled via the panel.
+  const [catData, hotData, prodData] = await Promise.all([
     safeFetch(apiUrl("/api/categories?homeVisible=true")),
+    safeFetch(apiUrl("/api/products?hotOffer=true&limit=4")),
     safeFetch(apiUrl("/api/products?featured=true&limit=8")),
   ]);
 
@@ -65,6 +75,12 @@ export default async function Home() {
       href: `/shop?category=${encodeURIComponent(ch.slug || ch.name)}`,
     })),
   }));
+
+  // Hot-offer products for the "হট অফার" section (max 4, Phase 7.6)
+  const hotOffers =
+    hotData?.success && Array.isArray(hotData.products)
+      ? hotData.products.slice(0, 4)
+      : [];
 
   // Featured products for the "জনপ্রিয় প্রোডাক্ট" section (max 8)
   const featured =
@@ -103,7 +119,22 @@ export default async function Home() {
       </section>
 
       {/* ────────────────────────────────────────────────
-          2. FEATURED CATEGORIES — admin-controlled grid
+          2. TRUST BAR — Phase 7.6 (cosmetic-store assurances)
+      ──────────────────────────────────────────────── */}
+      <section className="border-b border-gray-100 bg-white py-8">
+        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-4 text-center md:grid-cols-4">
+          {TRUST_ITEMS.map((item) => (
+            <div key={item.title}>
+              <div className="mb-2 text-3xl">{item.icon}</div>
+              <p className="text-sm font-bold text-gray-800">{item.title}</p>
+              <p className="text-xs text-gray-500">{item.sub}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ────────────────────────────────────────────────
+          3. FEATURED CATEGORIES — admin-controlled grid
       ──────────────────────────────────────────────── */}
       <section className="bg-gray-50 py-16 md:py-20">
         <div className="mx-auto max-w-6xl px-4">
@@ -163,7 +194,49 @@ export default async function Home() {
       </section>
 
       {/* ────────────────────────────────────────────────
-          3. FEATURED PRODUCTS — showcase grid
+          4. HOT OFFERS — Phase 7.6 (?hotOffer=true&limit=4)
+      ──────────────────────────────────────────────── */}
+      <section className="bg-gray-50 py-16 md:py-20">
+        <div className="mx-auto max-w-6xl px-4">
+          <div className="mb-8 flex items-center justify-between gap-4">
+            <h2 className="text-2xl font-bold text-gray-800 sm:text-3xl">
+              🔥 হট অফার
+            </h2>
+            <Link
+              href="/shop"
+              className="shrink-0 text-sm font-semibold hover:underline"
+              style={{ color: PINK }}
+            >
+              সব দেখুন →
+            </Link>
+          </div>
+
+          {hotOffers.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-pink-200 bg-white px-6 py-12 text-center">
+              <p className="text-lg text-gray-700">
+                🔥 এখনো কোনো হট অফার প্রোডাক্ট নেই।{" "}
+                <Link
+                  href="/admin"
+                  className="font-semibold hover:underline"
+                  style={{ color: PINK }}
+                >
+                  অ্যাডমিন প্যানেল
+                </Link>{" "}
+                থেকে প্রোডাক্টে &quot;হট অফার&quot; টগল চালু করুন।
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-4">
+              {hotOffers.map((p) => (
+                <ProductCard key={p._id} product={p} />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ────────────────────────────────────────────────
+          5. FEATURED PRODUCTS — showcase grid
       ──────────────────────────────────────────────── */}
       <section className="bg-white py-16 md:py-20">
         <div className="mx-auto max-w-6xl px-4">
@@ -217,7 +290,7 @@ export default async function Home() {
       </section>
 
       {/* ────────────────────────────────────────────────
-          4. NEWSLETTER SECTION
+          6. NEWSLETTER SECTION
       ──────────────────────────────────────────────── */}
       <section className="py-16" style={{ backgroundColor: "#fdf2f8" }}>
         <div className="mx-auto max-w-xl px-4 text-center">

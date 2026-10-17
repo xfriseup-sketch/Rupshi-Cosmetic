@@ -45,6 +45,11 @@ const ProductSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isHotOffer: {
+      // Phase 7.6 — shown in the homepage "হট অফার" section (?hotOffer=true)
+      type: Boolean,
+      default: false,
+    },
     discountPrice: {
       // Optional discounted price (must be lower than `price`)
       type: Number,
@@ -96,6 +101,7 @@ if (!Product) {
 } else if (
   !Product.schema.paths.isFeatured ||
   !Product.schema.paths.isNew ||
+  !Product.schema.paths.isHotOffer ||
   !Product.schema.paths.discountPrice ||
   !Product.schema.paths.brand ||
   !Product.schema.paths.slug
@@ -105,6 +111,7 @@ if (!Product) {
   const additions = {};
   if (!Product.schema.paths.isFeatured) additions.isFeatured = { type: Boolean, default: false };
   if (!Product.schema.paths.isNew) additions.isNew = { type: Boolean, default: false };
+  if (!Product.schema.paths.isHotOffer) additions.isHotOffer = { type: Boolean, default: false };
   if (!Product.schema.paths.discountPrice) additions.discountPrice = { type: Number, default: null, min: 0 };
   if (!Product.schema.paths.brand) additions.brand = { type: String, trim: true };
   if (!Product.schema.paths.slug) additions.slug = { type: String, lowercase: true, trim: true };
