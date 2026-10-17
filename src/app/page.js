@@ -10,6 +10,25 @@ function formatBDT(amount) {
   return `৳${Number(amount || 0).toLocaleString("en-BD")}`;
 }
 
+/** Hardcoded customer reviews (Phase 7.6 Step 2) */
+const REVIEWS = [
+  {
+    stars: "⭐⭐⭐⭐⭐",
+    text: "পণ্যের মান অসাধারণ! ডেলিভারিও খুব দ্রুত ছিল।",
+    author: "আনিকা রহমান, ঢাকা",
+  },
+  {
+    stars: "⭐⭐⭐⭐⭐",
+    text: "স্কিনকেয়ার প্রোডাক্টগুলো ব্যবহার করে ত্বক অনেক ভালো হয়েছে। অবশ্যই আবার কিনব।",
+    author: "সাদিয়া আক্তার, চট্টগ্রাম",
+  },
+  {
+    stars: "⭐⭐⭐⭐☆",
+    text: "মেকআপ কালেকশন দারুণ এবং দামও সাশ্রয়ী। রূপসীকে ধন্যবাদ।",
+    author: "নুসরাত জাহান, সিলেট",
+  },
+];
+
 /** Trust bar items (cosmetic-store focused, Bengali + English subtitle) */
 const TRUST_ITEMS = [
   { icon: "✨", title: "উন্নত মানের উপাদান", sub: "Premium Ingredients" },
@@ -290,7 +309,63 @@ export default async function Home() {
       </section>
 
       {/* ────────────────────────────────────────────────
-          6. NEWSLETTER SECTION
+          6. PROMO BANNER — Phase 7.6 Step 2
+             Full-width banner using /public/images/promo-banner.png
+      ──────────────────────────────────────────────── */}
+      <section className="relative flex min-h-[300px] w-full items-center justify-center bg-cover bg-center py-12 md:min-h-[420px] md:py-20">
+        {/* Background image (loaded via next/image as fill for optimization) */}
+        <Image
+          src="/images/promo-banner.png"
+          alt="বিশেষ ছাড়ের অফার ব্যানার"
+          fill
+          priority={false}
+          sizes="100vw"
+          className="object-cover"
+        />
+        {/* Dark overlay for text readability */}
+        <div className="absolute inset-0 bg-black/20" />
+
+        <div className="relative z-10 mx-auto max-w-3xl px-4 text-center text-white">
+          <h2 className="mb-4 text-3xl font-bold drop-shadow-md md:text-5xl">
+            বিশেষ ছাড়ের অফার!
+          </h2>
+          <p className="mb-8 text-lg drop-shadow md:text-xl">
+            সীমিত সময়ের জন্য সকল প্রোডাক্টে ২০% পর্যন্ত ডিসকাউন্ট
+          </p>
+          <Link
+            href="/shop?hotOffer=true"
+            className="inline-flex min-h-12 items-center justify-center rounded-full bg-white px-8 py-3 font-semibold text-pink-600 shadow-lg transition-all duration-300 hover:scale-105 hover:bg-pink-600 hover:text-white"
+          >
+            অফার দেখুন
+          </Link>
+        </div>
+      </section>
+
+      {/* ────────────────────────────────────────────────
+          7. CUSTOMER REVIEWS — Phase 7.6 Step 2 (hardcoded)
+      ──────────────────────────────────────────────── */}
+      <section className="bg-gray-50 py-16">
+        <h2 className="mb-10 text-center text-3xl font-bold text-gray-900">
+          গ্রাহকদের মতামত
+        </h2>
+        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 md:grid-cols-3">
+          {REVIEWS.map((r, i) => (
+            <div
+              key={i}
+              className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm transition-shadow hover:shadow-md"
+            >
+              <div className="mb-3 text-yellow-400">{r.stars}</div>
+              <p className="mb-4 italic text-gray-600">&quot;{r.text}&quot;</p>
+              <p className="text-sm font-semibold text-gray-900">
+                - {r.author}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ────────────────────────────────────────────────
+          8. NEWSLETTER SECTION
       ──────────────────────────────────────────────── */}
       <section className="py-16" style={{ backgroundColor: "#fdf2f8" }}>
         <div className="mx-auto max-w-xl px-4 text-center">
@@ -305,10 +380,28 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-[#9d174d] py-8 text-center text-pink-100">
-        <p className="text-lg font-semibold">রূপসী - কসমেটিক শপ</p>
-        <p className="mt-2 text-sm">© ২০২৬ রূপসী। সর্বস্বত্ব সংরক্ষিত।</p>
+      {/* Footer — Phase 7.6 Step 2 (brand + links + copyright) */}
+      <footer className="bg-gray-900 py-8 text-center text-white">
+        <p className="text-xl font-bold" style={{ color: PINK }}>
+          রূপসী
+        </p>
+        <nav className="mt-4 flex items-center justify-center gap-6 text-sm">
+          <Link href="/" className="text-gray-300 transition-colors hover:text-white">
+            হোম
+          </Link>
+          <Link href="/shop" className="text-gray-300 transition-colors hover:text-white">
+            দোকান
+          </Link>
+          <a
+            href="mailto:support@rupshi.com"
+            className="text-gray-300 transition-colors hover:text-white"
+          >
+            যোগাযোগ
+          </a>
+        </nav>
+        <p className="mt-4 text-xs text-gray-400">
+          © ২০২৪ রূপসী কসমেটিক্স. সর্বস্বত্ব সংরক্ষিত।
+        </p>
       </footer>
     </main>
   );
