@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import Navbar from "@/components/Navbar";
 import { useCart } from "@/context/CartContext";
 
 const SHIPPING_COST = 60; // Fixed delivery charge in BDT (must match /api/orders)
@@ -121,8 +120,6 @@ export default function CheckoutPage() {
 
   return (
     <main className="min-h-screen bg-pink-50">
-      <Navbar active="cart" />
-
       {/* Page Header */}
       <section className="bg-gradient-to-br from-pink-100 via-pink-50 to-white">
         <div className="mx-auto max-w-6xl px-4 py-10 text-center">

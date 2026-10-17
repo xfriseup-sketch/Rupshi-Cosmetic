@@ -4,7 +4,6 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import Navbar from "@/components/Navbar";
 import { useCart } from "@/context/CartContext";
 
 /* ------------------------------------------------------------------ */
@@ -53,7 +52,6 @@ export default function ShopPage() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-white">
-          <Navbar active="shop" />
           <p className="py-24 text-center text-gray-500 animate-pulse">লোড হচ্ছে...</p>
         </div>
       }
@@ -353,8 +351,6 @@ function ShopContent() {
   /* ------------------------------ render ---------------------------- */
   return (
     <main className="min-h-screen bg-pink-50">
-      <Navbar active="shop" />
-
       {/* Shop Header */}
       <section className="bg-gradient-to-br from-pink-100 via-pink-50 to-white">
         <div className="mx-auto max-w-7xl px-4 py-12 text-center">
@@ -531,11 +527,7 @@ function ShopContent() {
         </div>
       )}
 
-      {/* Footer */}
-      <footer className="bg-[#9d174d] py-8 text-center text-pink-100">
-        <p className="text-lg font-semibold">রূপসী - কসমেটিক শপ</p>
-        <p className="mt-2 text-sm">© ২০২৬ রূপসী। সর্বস্বত্ব সংরক্ষিত।</p>
-      </footer>
+
     </main>
   );
 }

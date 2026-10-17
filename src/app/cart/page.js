@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import Navbar from "@/components/Navbar";
 import { useCart } from "@/context/CartContext";
 
 // Category badge colors & Bengali labels (matching shop page)
@@ -36,8 +35,6 @@ export default function CartPage() {
 
   return (
     <main className="min-h-screen bg-pink-50">
-      <Navbar active="cart" />
-
       {/* Page Header */}
       <section className="bg-gradient-to-br from-pink-100 via-pink-50 to-white">
         <div className="mx-auto max-w-6xl px-4 py-10 text-center">
@@ -232,11 +229,7 @@ export default function CartPage() {
         )}
       </section>
 
-      {/* Footer */}
-      <footer className="bg-[#9d174d] py-8 text-center text-pink-100">
-        <p className="text-lg font-semibold">রূপসী - কসমেটিক শপ</p>
-        <p className="mt-2 text-sm">© ২০২৬ রূপসী। সর্বস্বত্ব সংরক্ষিত।</p>
-      </footer>
+
     </main>
   );
 }

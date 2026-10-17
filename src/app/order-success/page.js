@@ -3,7 +3,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import Navbar from "@/components/Navbar";
 
 // Confetti pieces (pure CSS — no external libraries)
 const CONFETTI_COLORS = ["#db2777", "#f472b6", "#fbcfe8", "#9d174d", "#f9a8d4", "#ffffff"];
@@ -23,8 +22,6 @@ function OrderSuccessContent() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-pink-50">
-      <Navbar active="" />
-
       {/* Confetti animation */}
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0">
         {confettiPieces.map((piece) => (

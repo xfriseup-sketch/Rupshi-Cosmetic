@@ -2,6 +2,8 @@ import "./globals.css";
 import { Noto_Sans_Bengali } from "next/font/google";
 import { CartProvider } from "@/context/CartContext";
 import Toast from "@/components/Toast";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 
 const notoSansBengali = Noto_Sans_Bengali({
   subsets: ["bengali"],
@@ -20,7 +22,11 @@ export default function RootLayout({ children }) {
     <html lang="bn">
       <body className={`${notoSansBengali.variable} font-sans`}>
         <CartProvider>
-          {children}
+          <div className="flex min-h-screen flex-col">
+            <Navbar />
+            <div className="flex-1">{children}</div>
+            <Footer />
+          </div>
           <Toast />
         </CartProvider>
       </body>

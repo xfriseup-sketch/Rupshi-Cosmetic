@@ -58,7 +58,8 @@ export default async function ProductPage({ params }) {
   // ---------- DB not configured ----------
   if (!dbOk) {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-24 text-center">
+    <>
+<main className="mx-auto max-w-3xl px-4 pt-24 pb-16 text-center">
         <p className="text-5xl">🗄️</p>
         <h1 className="mt-4 text-xl font-bold text-gray-800">
           ডাটাবেস কনফিগার করা হয়নি
@@ -73,13 +74,15 @@ export default async function ProductPage({ params }) {
           দোকানে ফিরে যান
         </Link>
       </main>
+    </>
     );
   }
 
   // ---------- product not found ----------
   if (!product) {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-24 text-center">
+    <>
+<main className="mx-auto max-w-3xl px-4 pt-24 pb-16 text-center">
         <p className="text-6xl">🔍</p>
         <h1 className="mt-4 text-2xl font-bold text-gray-800">
           প্রোডাক্টটি খুঁজে পাওয়া যায়নি
@@ -94,6 +97,7 @@ export default async function ProductPage({ params }) {
           সব প্রোডাক্ট দেখুন
         </Link>
       </main>
+    </>
     );
   }
 
@@ -104,9 +108,10 @@ export default async function ProductPage({ params }) {
   const discountPct = hasDiscount ? Math.round(((price - discountPrice) / price) * 100) : 0;
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-10 sm:py-14">
-      {/* Breadcrumb */}
-      <nav className="mb-6 text-sm text-gray-500">
+    <>
+      <main className="mx-auto max-w-6xl px-4 pt-24 pb-16 sm:pt-28">
+        {/* Breadcrumb */}
+        <nav className="mb-6 text-sm text-gray-500">
         <Link href="/" className="hover:text-[#ec4899]">হোম</Link>
         <span className="mx-2">/</span>
         <Link href="/shop" className="hover:text-[#ec4899]">দোকান</Link>
@@ -253,5 +258,6 @@ export default async function ProductPage({ params }) {
         </section>
       )}
     </main>
+    </>
   );
 }

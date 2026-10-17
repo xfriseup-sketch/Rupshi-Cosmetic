@@ -1,6 +1,5 @@
 import Link from "next/link";
 import Image from "next/image";
-import Navbar from "@/components/Navbar";
 
 // Primary palette (professional fashion-store look)
 const PINK = "#ec4899";
@@ -109,8 +108,6 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen bg-white text-gray-800">
-      {/* Navbar */}
-      <Navbar active="home" />
 
       {/* ────────────────────────────────────────────────
           1. HERO SECTION — Phase 7.5 fashion-store redesign
@@ -380,29 +377,6 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Footer — Phase 7.6 Step 2 (brand + links + copyright) */}
-      <footer className="bg-gray-900 py-8 text-center text-white">
-        <p className="text-xl font-bold" style={{ color: PINK }}>
-          রূপসী
-        </p>
-        <nav className="mt-4 flex items-center justify-center gap-6 text-sm">
-          <Link href="/" className="text-gray-300 transition-colors hover:text-white">
-            হোম
-          </Link>
-          <Link href="/shop" className="text-gray-300 transition-colors hover:text-white">
-            দোকান
-          </Link>
-          <a
-            href="mailto:support@rupshi.com"
-            className="text-gray-300 transition-colors hover:text-white"
-          >
-            যোগাযোগ
-          </a>
-        </nav>
-        <p className="mt-4 text-xs text-gray-400">
-          © ২০২৪ রূপসী কসমেটিক্স. সর্বস্বত্ব সংরক্ষিত।
-        </p>
-      </footer>
     </main>
   );
 }
