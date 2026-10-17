@@ -289,8 +289,9 @@ function ProductCard({ product }) {
 
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-lg border border-gray-100 bg-white transition-colors duration-300 hover:border-pink-200">
-      {/* Image */}
+      {/* Image (links to the product detail page) */}
       <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-pink-50">
+      <Link href={`/product/${encodeURIComponent(product.slug || product._id)}`} className="absolute inset-0 z-0 block" aria-label={product.name}>
         {product.image ? (
           <Image
             src={product.image}
@@ -324,6 +325,8 @@ function ProductCard({ product }) {
           </div>
         )}
 
+      </Link>
+
         {/* Quick Add — hidden on mobile, slides up on desktop hover */}
         {product.inStock && (
           <div className="absolute inset-x-0 bottom-0 hidden translate-y-full p-2 transition-transform duration-300 ease-out group-hover:translate-y-0 md:block">
@@ -339,14 +342,14 @@ function ProductCard({ product }) {
       </div>
 
       {/* Info */}
-      <div className="p-4">
+      <div className="relative z-10 p-4">
         {product.brand && (
           <p className="text-xs uppercase tracking-wide text-gray-400">
             {product.brand}
           </p>
         )}
         <h3 className="mt-1 line-clamp-2 min-h-[2.6em] text-sm font-medium text-gray-800 group-hover:text-[#ec4899] sm:text-base">
-          {product.name}
+          <Link href={`/product/${encodeURIComponent(product.slug || product._id)}`}>{product.name}</Link>
         </h3>
         <div className="mt-2 flex flex-wrap items-baseline gap-2">
           {hasDiscount ? (

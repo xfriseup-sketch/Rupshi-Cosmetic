@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/mongodb";
 import { dbNotConfiguredResponse } from "@/lib/dbStatus";
-import Product from "@/models/Product";
+import Product, { ensureUniqueSlug } from "@/models/Product";
 import Category from "@/models/Category";
 
 // Products come from MongoDB and change frequently — always fetch fresh data
@@ -102,8 +102,23 @@ export async function GET(request) {
 
     const sp = request.nextUrl.searchParams;
 
-    // ---- featured & limit ----
     const filter = {};
+
+    // ---- single product lookup by ?slug= or ?id= (product detail page) ----
+    const slugParam = sp.get("slug");
+    const idParam = sp.get("id");
+    if (slugParam) filter.slug = slugParam.toLowerCase();
+    else if (idParam) {
+      if (!mongoose.Types.ObjectId.isValid(idParam)) {
+        return NextResponse.json(
+          { success: false, message: "অবৈধ প্রোডাক্ট আইডি" },
+          { status: 400 }
+        );
+      }
+      filter._id = idParam;
+    }
+
+    // ---- featured & limit ----
     if (sp.get("featured") === "true") filter.isFeatured = true;
 
     let limit = parseInt(sp.get("limit") || "0", 10);
@@ -219,6 +234,9 @@ export async function POST(request) {
     const conn = await dbConnect();
     if (!conn) return dbNotConfiguredResponse();
 
+    // Auto-generate a unique URL slug from the name (Phase 7)
+    data.slug = await ensureUniqueSlug(Product, null, data.name);
+
     const product = await Product.create(data);
 
     // .toObject() gives a plain object (a raw Mongoose doc is not JSON-serializable)
@@ -283,6 +301,12 @@ export async function PUT(request) {
 
     const conn = await dbConnect();
     if (!conn) return dbNotConfiguredResponse();
+
+    // Regenerate slug if the name changed or the product has none yet (Phase 7)
+    const existing = await Product.findById(id).select("name slug").lean();
+    if (existing && (!existing.slug || existing.name !== data.name)) {
+      data.slug = await ensureUniqueSlug(Product, id, data.name);
+    }
 
     const product = await Product.findByIdAndUpdate(id, data, {
       new: true,

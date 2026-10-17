@@ -612,6 +612,12 @@ function CustomPriceForm({ minPrice, maxPrice, onSubmit }) {
 /* ------------------------------------------------------------------ */
 /* Product card (Phase 6 spec)                                         */
 /* ------------------------------------------------------------------ */
+/** Detail-page URL: prefer slug, fall back to _id (legacy products) */
+export function productHref(product) {
+  const key = product.slug || product._id;
+  return `/product/${encodeURIComponent(key)}`;
+}
+
 function ProductCard({ product, onAdd }) {
   const hasDiscount =
     product.discountPrice != null && Number(product.discountPrice) < Number(product.price);
@@ -621,8 +627,9 @@ function ProductCard({ product, onAdd }) {
 
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-pink-100 bg-white shadow-sm transition-all hover:-translate-y-1 hover:border-[#db2777] hover:shadow-lg">
-      {/* Image */}
+      {/* Image (links to the product detail page) */}
       <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-pink-100">
+      <Link href={productHref(product)} className="absolute inset-0 z-0 block" aria-label={product.name}>
         {product.image ? (
           <Image
             src={product.image}
@@ -658,6 +665,8 @@ function ProductCard({ product, onAdd }) {
           </div>
         )}
 
+      </Link>
+
         {/* Quick Add — slides up on hover (desktop only) */}
         <button
           type="button"
@@ -670,14 +679,14 @@ function ProductCard({ product, onAdd }) {
       </div>
 
       {/* Details */}
-      <div className="flex flex-1 flex-col p-3 sm:p-4">
+      <div className="relative z-10 flex flex-1 flex-col p-3 sm:p-4">
         {product.brand && (
           <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
             {product.brand}
           </p>
         )}
         <h3 className="mt-0.5 line-clamp-2 text-sm font-bold text-gray-900 group-hover:text-[#db2777] sm:text-base">
-          {product.name}
+          <Link href={productHref(product)}>{product.name}</Link>
         </h3>
 
         <div className="mt-2 flex flex-wrap items-baseline gap-2">

@@ -58,6 +58,14 @@ const ProductSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
+    slug: {
+      // URL-friendly identifier used by the single product page
+      // (/product/[slug]). Auto-generated from `name` below.
+      type: String,
+      lowercase: true,
+      trim: true,
+      index: true,
+    },
     createdAt: {
       type: Date,
       default: Date.now,
@@ -65,6 +73,20 @@ const ProductSchema = new mongoose.Schema(
   },
   { collection: "products" }
 );
+
+/**
+ * Generate a URL-safe slug from the product name.
+ * Bengali/unicode characters are kept; spaces/punctuation become hyphens.
+ */
+export function generateSlug(text) {
+  return String(text || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[\s~+_/\\]+/g, "-")
+    .replace(/[^\p{L}\p{N}-]/gu, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
 
 // Prevent overwriting the model on hot reloads / repeated imports
 let Product = mongoose.models.Product;
@@ -75,16 +97,36 @@ if (!Product) {
   !Product.schema.paths.isFeatured ||
   !Product.schema.paths.isNew ||
   !Product.schema.paths.discountPrice ||
-  !Product.schema.paths.brand
+  !Product.schema.paths.brand ||
+  !Product.schema.paths.slug
 ) {
   // An older compiled model (e.g. from a previous hot reload) may lack the new
-  // Phase 6 paths — add them so queries/validations keep working.
+  // Phase 6/7 paths — add them so queries/validations keep working.
   const additions = {};
   if (!Product.schema.paths.isFeatured) additions.isFeatured = { type: Boolean, default: false };
   if (!Product.schema.paths.isNew) additions.isNew = { type: Boolean, default: false };
   if (!Product.schema.paths.discountPrice) additions.discountPrice = { type: Number, default: null, min: 0 };
   if (!Product.schema.paths.brand) additions.brand = { type: String, trim: true };
+  if (!Product.schema.paths.slug) additions.slug = { type: String, lowercase: true, trim: true };
   Product.schema.add(additions);
+}
+
+/**
+ * Auto-generate & de-duplicate a unique slug for a product payload BEFORE it
+ * is written to MongoDB. Used by the API routes because `findByIdAndUpdate`
+ * and bulk writes bypass Mongoose `pre("save")` hooks.
+ */
+export async function ensureUniqueSlug(ProductModel, excludeId, name) {
+  const base = generateSlug(name || "") || "product";
+  let candidate = base;
+  for (let i = 1; i < 100; i++) {
+    const query = { slug: candidate };
+    if (excludeId) query._id = { $ne: excludeId };
+    const clash = await ProductModel.findOne(query).select("_id").lean();
+    if (!clash) break;
+    candidate = `${base}-${i}`;
+  }
+  return candidate;
 }
 
 export default Product;

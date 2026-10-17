@@ -147,8 +147,10 @@ const emptyProductForm = {
 
 /** Normalize a product form for the API (numbers, empty discount → null) */
 function normalizeProductPayload(form) {
+  // Strip server-only fields (_id, slug, createdAt) before sending to the API
+  const { _id, slug, createdAt, ...rest } = form;
   return {
-    ...form,
+    ...rest,
     price: Number(form.price),
     discountPrice:
       form.discountPrice === "" || form.discountPrice === null || form.discountPrice === undefined
@@ -491,10 +493,10 @@ function ProductManager() {
     setSaving(true);
     setMessage(null);
     try {
-      const res = await fetch(`/api/products?id=${updated._id}`, {
-        method: "PUT",
+      const res = await fetch(`/api/products/${encodeURIComponent(updated._id)}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updated),
+        body: JSON.stringify(normalizeProductPayload(updated)),
       });
       const data = await res.json();
 
