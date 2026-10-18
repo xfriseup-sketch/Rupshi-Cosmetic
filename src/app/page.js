@@ -2,135 +2,69 @@ import Link from "next/link";
 import Image from "next/image";
 
 /* ──────────────────────────────────────────────────────────
-   DEMO DATA — Static Luxury Rose Homepage (Phase 7.8)
-   No database fetching. Pure visual verification.
+   Phase 8.0 — Dynamic Homepage (Luxury Rose design preserved)
+   Fetches real data from MongoDB via API routes.
 ────────────────────────────────────────────────────────── */
 
-const bestSellers = [
-  {
-    id: 1,
-    name: "Rose Glow Vitamin C Serum",
-    price: 1490,
-    image:
-      "https://images.unsplash.com/photo-1620916569876-0a1a70ef4a0a?w=600&h=800&fit=crop",
-    badge: "BESTSELLER",
-    rating: 4.9,
-  },
-  {
-    id: 2,
-    name: "Hydra-Boost Hyaluronic Cream",
-    price: 1890,
-    image:
-      "https://images.unsplash.com/photo-1570194065650-d99fb26b14b7?w=600&h=800&fit=crop",
-    badge: "BESTSELLER",
+export const dynamic = "force-dynamic";
+
+/* ── Helpers ── */
+
+function apiUrl(path) {
+  if (process.env.NEXT_PUBLIC_BASE_URL) {
+    return `${process.env.NEXT_PUBLIC_BASE_URL.replace(/\/$/, "")}${path}`;
+  }
+  const vercelUrl = process.env.VERCEL_URL;
+  if (vercelUrl) return `https://${vercelUrl}${path}`;
+  return `http://localhost:${process.env.PORT || 3000}${path}`;
+}
+
+async function safeFetch(url) {
+  try {
+    const res = await fetch(url, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+function formatBDT(amount) {
+  return `৳${Number(amount || 0).toLocaleString("en-BD")}`;
+}
+
+/** Map a DB product → card shape used by the Luxury Rose design */
+function toCardProduct(p) {
+  const hasDiscount =
+    p.discountPrice != null && Number(p.discountPrice) < Number(p.price);
+  const discountPct = hasDiscount
+    ? Math.round(((p.price - p.discountPrice) / p.price) * 100)
+    : 0;
+
+  let badge = null;
+  if (p.isHotOffer && hasDiscount) badge = `-${discountPct}%`;
+  else if (p.isHotOffer) badge = "HOT";
+  else if (p.isNew) badge = "NEW";
+  else if (p.isFeatured) badge = "BESTSELLER";
+
+  return {
+    id: p._id,
+    slug: p.slug || p._id,
+    name: p.name,
+    price: hasDiscount ? p.discountPrice : p.price,
+    originalPrice: hasDiscount ? p.price : null,
+    image: p.image || "",
+    badge,
     rating: 4.8,
-  },
-  {
-    id: 3,
-    name: "Velvet Matte Lipstick Set",
-    price: 990,
-    image:
-      "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=600&h=800&fit=crop",
-    badge: "BESTSELLER",
-    rating: 4.7,
-  },
-  {
-    id: 4,
-    name: "Radiance Eye Cream",
-    price: 1290,
-    image:
-      "https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=600&h=800&fit=crop",
-    badge: "BESTSELLER",
-    rating: 4.9,
-  },
-];
+    brand: p.brand || "",
+    inStock: p.inStock !== false,
+  };
+}
 
-const hotOffers = [
-  {
-    id: 5,
-    name: "Complete Skincare Routine Kit",
-    price: 2490,
-    originalPrice: 3590,
-    image:
-      "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=600&h=800&fit=crop",
-    badge: "-30%",
-    rating: 4.8,
-  },
-  {
-    id: 6,
-    name: "Luxe Foundation SPF 30",
-    price: 1390,
-    originalPrice: 1990,
-    image:
-      "https://images.unsplash.com/photo-1631730486572-226b1e126018?w=600&h=800&fit=crop",
-    badge: "BOGO",
-    rating: 4.6,
-  },
-  {
-    id: 7,
-    name: "Night Repair Oil",
-    price: 1790,
-    originalPrice: 2490,
-    image:
-      "https://images.unsplash.com/photo-1608248543807-ba3c7a1ab7b0?w=600&h=800&fit=crop",
-    badge: "-28%",
-    rating: 4.9,
-  },
-];
-
-const newArrivals = [
-  {
-    id: 8,
-    name: "Dewy Glass Skin Mist",
-    price: 890,
-    image:
-      "https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?w=600&h=800&fit=crop",
-    badge: "NEW",
-    rating: 4.7,
-  },
-  {
-    id: 9,
-    name: "Silk Hair Serum",
-    price: 1190,
-    image:
-      "https://images.unsplash.com/photo-1527799820374-dcf8d9d4a388?w=600&h=800&fit=crop",
-    badge: "NEW",
-    rating: 4.8,
-  },
-  {
-    id: 10,
-    name: "Bloom Blush Palette",
-    price: 1590,
-    image:
-      "https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=600&h=800&fit=crop",
-    badge: "NEW",
-    rating: 4.9,
-  },
-  {
-    id: 11,
-    name: "Cleanse & Glow Foam",
-    price: 790,
-    image:
-      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=600&h=800&fit=crop",
-    badge: "NEW",
-    rating: 4.6,
-  },
-];
-
-const promoBanner = {
-  title: "Get Up to 35% OFF",
-  subtitle: "Limited-time luxury deals on premium skincare & makeup. Glow starts now.",
-  buttonText: "Claim Deal Now",
-  imageUrl:
-    "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&h=600&fit=crop",
-};
-
-const categories = [
-  { name: "Skincare", icon: "✨", count: 48 },
-  { name: "Makeup", icon: "💄", count: 62 },
-  { name: "Haircare", icon: "🧴", count: 27 },
-  { name: "Fragrance", icon: "🌸", count: 19 },
-];
+/* ── Static content (not from DB) ── */
 
 const trustItems = [
   { icon: "🏆", title: "100% Authentic", subtitle: "Direct from top brands" },
@@ -189,13 +123,7 @@ const reviews = [
   },
 ];
 
-/* ──────────────────────────────────────────────────────────
-   HELPERS
-────────────────────────────────────────────────────────── */
-
-function formatBDT(amount) {
-  return `৳${Number(amount).toLocaleString("en-BD")}`;
-}
+/* ── UI Components ── */
 
 function StarRating({ rating }) {
   return (
@@ -218,20 +146,31 @@ function StarRating({ rating }) {
 function ProductCard({ product }) {
   return (
     <div className="group flex flex-col overflow-hidden rounded-3xl border border-rose-100 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-rose-100/50">
-      <div className="relative aspect-[3/4] overflow-hidden bg-rose-50">
-        <Image
-          src={product.image}
-          alt={product.name}
-          width={400}
-          height={533}
-          className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
-        />
+      <Link
+        href={`/product/${encodeURIComponent(product.slug)}`}
+        className="relative aspect-[3/4] overflow-hidden bg-rose-50"
+      >
+        {product.image ? (
+          <Image
+            src={product.image}
+            alt={product.name}
+            width={400}
+            height={533}
+            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-5xl opacity-30">
+            💄
+          </div>
+        )}
         {product.badge && (
           <span
             className={`absolute left-3 top-3 rounded-full px-3 py-1 text-[11px] font-bold tracking-wide text-white shadow ${
               product.badge === "NEW"
                 ? "bg-sky-500"
-                : product.badge.startsWith("-") || product.badge === "BOGO"
+                : product.badge.startsWith("-") ||
+                  product.badge === "BOGO" ||
+                  product.badge === "HOT"
                 ? "bg-rose-500"
                 : "bg-amber-500"
             }`}
@@ -239,11 +178,25 @@ function ProductCard({ product }) {
             {product.badge}
           </span>
         )}
-      </div>
+        {!product.inStock && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/45">
+            <span className="rounded-full bg-white/95 px-4 py-1.5 text-sm font-bold text-rose-600">
+              স্টক নেই
+            </span>
+          </div>
+        )}
+      </Link>
       <div className="flex flex-1 flex-col p-4">
         <StarRating rating={product.rating} />
-        <h3 className="mt-2 line-clamp-2 text-sm font-semibold text-slate-800 group-hover:text-rose-600">
-          {product.name}
+        {product.brand && (
+          <p className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-rose-400">
+            {product.brand}
+          </p>
+        )}
+        <h3 className="mt-1 line-clamp-2 text-sm font-semibold text-slate-800 group-hover:text-rose-600">
+          <Link href={`/product/${encodeURIComponent(product.slug)}`}>
+            {product.name}
+          </Link>
         </h3>
         <div className="mt-auto flex items-baseline gap-2 pt-3">
           <span className="text-lg font-bold text-rose-600">
@@ -255,19 +208,72 @@ function ProductCard({ product }) {
             </span>
           )}
         </div>
-        <button className="mt-3 w-full rounded-xl bg-rose-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-rose-700">
-          Add to Cart
-        </button>
+        <Link
+          href={`/product/${encodeURIComponent(product.slug)}`}
+          className="mt-3 block w-full rounded-xl bg-rose-600 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-rose-700"
+        >
+          View Product
+        </Link>
       </div>
     </div>
   );
 }
 
-/* ──────────────────────────────────────────────────────────
-   PAGE
-────────────────────────────────────────────────────────── */
+function EmptyState({ message }) {
+  return (
+    <div className="col-span-full rounded-2xl border-2 border-dashed border-rose-200 bg-white p-10 text-center">
+      <p className="text-slate-500">{message}</p>
+    </div>
+  );
+}
 
-export default function Home() {
+/* ── Page ── */
+
+export default async function Home() {
+  const [catData, featuredData, hotData, newestData] = await Promise.all([
+    safeFetch(apiUrl("/api/categories?homeVisible=true")),
+    safeFetch(apiUrl("/api/products?featured=true&limit=4")),
+    safeFetch(apiUrl("/api/products?hotOffer=true&limit=3")),
+    safeFetch(apiUrl("/api/products?sort=newest&limit=4")),
+  ]);
+
+  // Categories — prefer tree (main + children), fall back to flat list
+  const catTree =
+    catData?.success && Array.isArray(catData.tree) ? catData.tree : [];
+  const categories =
+    catTree.length > 0
+      ? catTree.map((c) => ({
+          name: c.name,
+          icon: c.icon || "🛍️",
+          slug: c.slug || c.name,
+          count: (c.children || []).length || "",
+        }))
+      : catData?.success && Array.isArray(catData.categories)
+      ? catData.categories
+          .filter((c) => !c.parentCategory)
+          .map((c) => ({
+            name: c.name,
+            icon: c.icon || "🛍️",
+            slug: c.slug || c.name,
+            count: "",
+          }))
+      : [];
+
+  const bestSellers =
+    featuredData?.success && Array.isArray(featuredData.products)
+      ? featuredData.products.map(toCardProduct)
+      : [];
+
+  const hotOffers =
+    hotData?.success && Array.isArray(hotData.products)
+      ? hotData.products.map(toCardProduct)
+      : [];
+
+  const newArrivals =
+    newestData?.success && Array.isArray(newestData.products)
+      ? newestData.products.map(toCardProduct)
+      : [];
+
   return (
     <div className="min-h-screen bg-[#fdf8f9] text-slate-800">
       {/* ── A. TOP ANNOUNCEMENT BAR ── */}
@@ -278,7 +284,6 @@ export default function Home() {
       {/* ── B. HERO SECTION ── */}
       <section className="relative overflow-hidden bg-gradient-to-br from-rose-50 via-amber-50/40 to-rose-50">
         <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:gap-16 lg:py-24">
-          {/* Text */}
           <div className="text-center lg:text-left">
             <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-rose-500">
               Rupshi Cosmetics
@@ -307,7 +312,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Image — Circular */}
           <div className="relative mx-auto flex justify-center">
             <div className="relative h-72 w-72 overflow-hidden rounded-full border-8 border-white shadow-2xl shadow-rose-200/60 sm:h-80 sm:w-80 lg:h-96 lg:w-96">
               <Image
@@ -319,14 +323,13 @@ export default function Home() {
                 className="h-full w-full object-cover"
               />
             </div>
-            {/* Decorative rings */}
             <div className="pointer-events-none absolute -inset-4 rounded-full border border-rose-200/50" />
             <div className="pointer-events-none absolute -inset-8 rounded-full border border-rose-100/40" />
           </div>
         </div>
       </section>
 
-      {/* ── C. TRUST BAR (Floating Card) ── */}
+      {/* ── C. TRUST BAR ── */}
       <section className="relative z-10 -mt-8 px-4 sm:px-6">
         <div className="mx-auto max-w-5xl rounded-2xl border border-rose-100 bg-white p-6 shadow-xl shadow-rose-100/40 sm:p-8">
           <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
@@ -355,23 +358,31 @@ export default function Home() {
         <h2 className="mb-10 text-center font-serif text-3xl font-bold text-slate-900 sm:text-4xl">
           Explore Categories
         </h2>
-        <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-4">
-          {categories.map((cat) => (
-            <Link
-              key={cat.name}
-              href={`/shop?category=${encodeURIComponent(cat.name.toLowerCase())}`}
-              className="group flex flex-col items-center rounded-3xl border border-rose-100 bg-white p-8 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-rose-200 hover:shadow-lg hover:shadow-rose-100/50"
-            >
-              <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-rose-50 to-amber-50 text-4xl transition-transform duration-300 group-hover:scale-110">
-                {cat.icon}
-              </div>
-              <h3 className="text-base font-bold text-slate-800 group-hover:text-rose-600">
-                {cat.name}
-              </h3>
-              <p className="mt-1 text-xs text-slate-500">{cat.count} products</p>
-            </Link>
-          ))}
-        </div>
+        {categories.length === 0 ? (
+          <EmptyState message="No categories available yet. Add some from the Admin panel." />
+        ) : (
+          <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-4">
+            {categories.map((cat) => (
+              <Link
+                key={cat.slug}
+                href={`/shop?category=${encodeURIComponent(cat.slug)}`}
+                className="group flex flex-col items-center rounded-3xl border border-rose-100 bg-white p-8 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-rose-200 hover:shadow-lg hover:shadow-rose-100/50"
+              >
+                <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-rose-50 to-amber-50 text-4xl transition-transform duration-300 group-hover:scale-110">
+                  {cat.icon}
+                </div>
+                <h3 className="text-base font-bold text-slate-800 group-hover:text-rose-600">
+                  {cat.name}
+                </h3>
+                {cat.count !== "" && (
+                  <p className="mt-1 text-xs text-slate-500">
+                    {cat.count} sub-categories
+                  </p>
+                )}
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* ── E. BEST SELLERS ── */}
@@ -389,9 +400,11 @@ export default function Home() {
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
-            {bestSellers.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
+            {bestSellers.length === 0 ? (
+              <EmptyState message="No featured products yet. Mark products as Featured in Admin." />
+            ) : (
+              bestSellers.map((p) => <ProductCard key={p.id} product={p} />)
+            )}
           </div>
         </div>
       </section>
@@ -411,9 +424,11 @@ export default function Home() {
             </Link>
           </div>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {hotOffers.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
+            {hotOffers.length === 0 ? (
+              <EmptyState message="No hot offers yet. Toggle Hot Offer on products in Admin." />
+            ) : (
+              hotOffers.map((p) => <ProductCard key={p.id} product={p} />)
+            )}
           </div>
         </div>
       </section>
@@ -424,21 +439,22 @@ export default function Home() {
           <div className="grid items-center gap-8 p-8 sm:p-12 lg:grid-cols-2">
             <div className="text-center lg:text-left">
               <h2 className="font-serif text-3xl font-bold text-white sm:text-4xl lg:text-5xl">
-                {promoBanner.title}
+                Get Up to 35% OFF
               </h2>
               <p className="mt-4 max-w-md text-base text-rose-100">
-                {promoBanner.subtitle}
+                Limited-time luxury deals on premium skincare & makeup. Glow
+                starts now.
               </p>
               <Link
                 href="/shop?hotOffer=true"
                 className="mt-8 inline-flex items-center justify-center rounded-full bg-white px-8 py-3.5 text-sm font-semibold text-rose-700 shadow-lg transition-all hover:scale-105 hover:bg-rose-50"
               >
-                {promoBanner.buttonText}
+                Claim Deal Now
               </Link>
             </div>
             <div className="relative mx-auto hidden h-56 w-full max-w-sm overflow-hidden rounded-2xl lg:block">
               <Image
-                src={promoBanner.imageUrl}
+                src="https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&h=600&fit=crop"
                 alt="Promo"
                 width={400}
                 height={300}
@@ -464,9 +480,11 @@ export default function Home() {
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
-            {newArrivals.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
+            {newArrivals.length === 0 ? (
+              <EmptyState message="No products yet. Add products from the Admin panel." />
+            ) : (
+              newArrivals.map((p) => <ProductCard key={p.id} product={p} />)
+            )}
           </div>
         </div>
       </section>
