@@ -170,17 +170,33 @@ export default async function Home() {
           2. TRUST BAR — Phase 7.7 PREMIUM redesign
              Centered icon wrappers with pink rings & soft shadows
       ──────────────────────────────────────────────── */}
-      <section className="border-b border-gray-100 bg-white">
-        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-8 px-4 py-10 text-center md:grid-cols-4">
-          {TRUST_ITEMS.map((item) => (
-            <div key={item.title}>
-              <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-pink-50 shadow-sm ring-1 ring-pink-100">
-                <span className="text-2xl">{item.icon}</span>
+      {/* ────────────────────────────────────────────────
+          2. TRUST BAR — Phase 7.7 PREMIUM redesign
+             Minimalist Line Style with Icons & Hover Effects
+      ──────────────────────────────────────────────── */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 my-10">
+        <div className="border-y border-pink-100 py-6 bg-white/50 backdrop-blur-sm">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+            
+            {TRUST_ITEMS.map((item, index) => (
+              <div key={index} className="flex items-center justify-center gap-3 group cursor-default">
+                {/* Icon Wrapper - Subtle Pink Circle on Hover */}
+                <div className="w-10 h-10 rounded-full bg-pink-50 flex items-center justify-center text-xl text-pink-600 group-hover:bg-pink-600 group-hover:text-white transition-all duration-300 shadow-sm">
+                  {item.icon}
+                </div>
+                
+                {/* Text Content */}
+                <div className="text-left hidden sm:block">
+                  <span className="block font-semibold text-slate-900 text-sm leading-tight">{item.title}</span>
+                  <span className="block text-slate-500 text-xs uppercase tracking-wide mt-0.5">{item.sub}</span>
+                </div>
+                
+                {/* Mobile Only Title */}
+                <span className="sm:hidden font-medium text-slate-900 text-xs">{item.title}</span>
               </div>
-              <p className="mb-1 text-sm font-bold text-gray-900">{item.title}</p>
-              <p className="text-xs text-gray-500">{item.sub}</p>
-            </div>
-          ))}
+            ))}
+
+          </div>
         </div>
       </section>
 
@@ -440,28 +456,71 @@ export default async function Home() {
       {/* ────────────────────────────────────────────────
           9. WHY CHOOSE US — Phase 7.7 NEW
       ──────────────────────────────────────────────── */}
-      <section className="bg-gray-50 py-16">
-        <div className="mx-auto max-w-6xl px-4">
-          <h2 className="mb-12 text-center text-3xl font-bold text-gray-900">
+            {/* ────────────────────────────────────────────────
+          9. WHY CHOOSE US — Phase 7.7 PREMIUM Redesign
+             Glassmorphism Cards with Gradient Accents
+      ──────────────────────────────────────────────── */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto bg-[#FFFDFB]">
+        
+        {/* Section Header */}
+        <div className="text-center max-w-2xl mx-auto mb-16">
+          <span className="inline-block px-4 py-1.5 rounded-full bg-pink-100/60 text-pink-600 font-semibold text-xs tracking-widest uppercase mb-3 border border-pink-200/50">
+            Glow With Confidence
+          </span>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-slate-900 leading-tight font-serif">
             কেন রূপসী বেছে নেবেন?
           </h2>
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-            {WHY_CHOOSE_US.map((card) => (
-              <div
-                key={card.title}
-                className="rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm transition-shadow hover:shadow-md"
-              >
-                <div className="mb-4 text-5xl">{card.icon}</div>
-                <h3 className="mb-3 text-xl font-bold text-gray-900">
-                  {card.title}
-                </h3>
-                <p className="text-sm leading-relaxed text-gray-600">
-                  {card.desc}
-                </p>
+          <p className="text-slate-600 mt-4 text-sm sm:text-base leading-relaxed">
+            আমরা নিয়ে আসছি প্রকৃতির সেরা উপাদান এবং বিজ্ঞানের সমন্বয়, আপনার ত্বকের প্রকৃত যত্নের জন্য।
+          </p>
+        </div>
+
+        {/* Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          
+          {WHY_CHOOSE_US.map((card, index) => (
+            <div 
+              key={index}
+              className="relative bg-white/80 backdrop-blur-sm rounded-3xl p-8 text-center border border-pink-100 shadow-sm hover:shadow-xl hover:border-pink-300 transition-all duration-300 group hover:-translate-y-1 overflow-hidden"
+            >
+              {/* Decorative Background Blob for Luxury Feel */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-pink-50/50 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+
+              {/* Icon Box */}
+              <div className="w-16 h-16 bg-pink-50 text-pink-600 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-6 group-hover:bg-pink-600 group-hover:text-white transition-all duration-300 shadow-inner relative z-10">
+                {card.icon}
               </div>
-            ))}
+              
+              {/* Title */}
+              <h3 className="text-xl font-bold text-slate-900 mb-3 font-serif relative z-10">
+                {card.title}
+              </h3>
+              
+              {/* Description */}
+              <p className="text-slate-600 text-sm leading-relaxed relative z-10">
+                {card.desc}
+              </p>
+            </div>
+          ))}
+
+        </div>
+
+        {/* Bottom Trust Badges Strip */}
+        <div className="mt-16 bg-gradient-to-r from-pink-50 via-amber-50 to-pink-50 rounded-2xl p-6 border border-pink-100 flex flex-wrap items-center justify-around gap-6 text-center">
+          <div className="flex items-center gap-2 text-slate-700 font-medium text-sm">
+            <span className="text-lg text-pink-500">↩️</span>
+            <span>সহজ ৭ দিনের রিটার্ন</span>
+          </div>
+          <div className="flex items-center gap-2 text-slate-700 font-medium text-sm">
+            <span className="text-lg text-pink-500">✅</span>
+            <span>১০০% অথেনটিক গ্যারান্টি</span>
+          </div>
+          <div className="flex items-center gap-2 text-slate-700 font-medium text-sm">
+            <span className="text-lg text-pink-500">😊</span>
+            <span>৫০,০০০+ সন্তুষ্ট গ্রাহক</span>
           </div>
         </div>
+
       </section>
 
       {/* ────────────────────────────────────────────────
