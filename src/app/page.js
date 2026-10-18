@@ -30,28 +30,33 @@ const REVIEWS = [
 
 /** Trust bar items (cosmetic-store focused, Bengali + English subtitle) */
 const TRUST_ITEMS = [
-  { icon: "✨", title: "উন্নত মানের উপাদান", sub: "Premium Ingredients" },
-  { icon: "🛡️", title: "২ বছরের ওয়ারেন্টি", sub: "Warranty Protection" },
-  { icon: "🚚", title: "১৫০০৳+ অর্ডারে ফ্রি ডেলিভারি", sub: "Free Shipping over ১৫০০৳" },
-  { icon: "💬", title: "২৪/৭ সাপোর্ট", sub: "Dedicated Support" },
+  { icon: "🏅", title: "১০০% অরিজিনাল", sub: "সরাসরি টপ ব্র্যান্ড থেকে" },
+  { icon: "↩️", title: "৭ দিনের সহজ রিটার্ন", sub: "ঝামেলাবিহীন রিফান্ড পলিসি" },
+  { icon: "🚀", title: "এক্সপ্রেস শিপিং", sub: "সারা বাংলাদেশে দ্রুত ডেলিভারি" },
+  { icon: "🔒", title: "নিরাপদ পেমেন্ট", sub: "bKash, Nagad ও কার্ড" },
 ];
 
 /** "Why Choose Us" cards (Phase 7.7) */
 const WHY_CHOOSE_US = [
   {
     icon: "🌿",
-    title: "১০০% অরিজিনাল",
-    desc: "আমরা কেবল ব্র্যান্ডেড ও অথেন্টিক পণ্য বিক্রি করি।",
+    title: "১০০% অর্গানিক ও ভেগান",
+    desc: "বিশুদ্ধ প্রাকৃতিক উপাদানে তৈরি, কোনো ক্ষতিকর প্যারাবেন, সালফেট বা কৃত্রিম বিষ মুক্ত।",
   },
   {
-    icon: "⚡",
-    title: "দ্রুত ডেলিভারি",
-    desc: "ঢাকায় ২৪ ঘণ্টায় এবং দেশব্যাপী ৪৮ ঘণ্টায় পৌঁছে যায়।",
+    icon: "🧪",
+    title: "ডার্মাটোলজিস্ট টেস্টেড",
+    desc: "স্কিনকেয়ার বিশেষজ্ঞদের দ্বারা ক্লিনিক্যালি পরীক্ষিত — সকল ত্বকের জন্য নিরাপদ ও কার্যকর।",
   },
   {
-    icon: "💰",
-    title: "সাশ্রয়ী দাম",
-    desc: "মানসম্মত পণ্য সবচেয়ে কম দামে পাওয়ার নিশ্চয়তা।",
+    icon: "🐾",
+    title: "ক্রুয়েল্টি-ফ্রি",
+    desc: "আমরা প্রকৃতি ও প্রাণীদের ভালোবাসি। কোনো পণ্য বা উপাদান প্রাণীর ওপর পরীক্ষা করা হয় না।",
+  },
+  {
+    icon: "🚚",
+    title: "এক্সপ্রেস ডেলিভারি",
+    desc: "দ্রুত, নিরাপদ ও তাপ-নিয়ন্ত্রিত প্যাকেজিং—আপনার পণ্য পৌঁছাবে একদম ফ্রেশ।",
   },
 ];
 
@@ -167,32 +172,24 @@ export default async function Home() {
       </section>
 
       {/* ────────────────────────────────────────────────
-          2. TRUST BAR — Phase 7.7 PREMIUM redesign
-             Centered icon wrappers with pink rings & soft shadows
+          2. TRUST BAR — Premium Soft Rose design (user HTML)
       ──────────────────────────────────────────────── */}
-      {/* ────────────────────────────────────────────────
-          2. TRUST BAR — Phase 7.7 PREMIUM redesign
-             Minimalist Line Style with Icons & Hover Effects
-      ──────────────────────────────────────────────── */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 my-10">
-        <div className="border-y border-pink-100 py-6 bg-white/50 backdrop-blur-sm">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-            
+      <section className="mx-auto my-10 max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="rounded-2xl border border-pink-100/80 bg-gradient-to-r from-pink-50 via-amber-50/60 to-pink-50 p-6 shadow-sm">
+          <div className="grid grid-cols-2 gap-6 text-center divide-y md:divide-y-0 md:divide-x divide-pink-200/50 md:grid-cols-4">
+
             {TRUST_ITEMS.map((item, index) => (
-              <div key={index} className="flex items-center justify-center gap-3 group cursor-default">
-                {/* Icon Wrapper - Subtle Pink Circle on Hover */}
-                <div className="w-10 h-10 rounded-full bg-pink-50 flex items-center justify-center text-xl text-pink-600 group-hover:bg-pink-600 group-hover:text-white transition-all duration-300 shadow-sm">
+              <div key={index} className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4 sm:pt-0">
+                {/* Icon Wrapper — Soft Rose Circle */}
+                <div className="w-12 h-12 shrink-0 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center text-xl">
                   {item.icon}
                 </div>
-                
+
                 {/* Text Content */}
-                <div className="text-left hidden sm:block">
-                  <span className="block font-semibold text-slate-900 text-sm leading-tight">{item.title}</span>
-                  <span className="block text-slate-500 text-xs uppercase tracking-wide mt-0.5">{item.sub}</span>
+                <div className="text-left">
+                  <h4 className="text-sm font-bold text-slate-900">{item.title}</h4>
+                  <p className="text-xs text-slate-500">{item.sub}</p>
                 </div>
-                
-                {/* Mobile Only Title */}
-                <span className="sm:hidden font-medium text-slate-900 text-xs">{item.title}</span>
               </div>
             ))}
 
@@ -454,11 +451,7 @@ export default async function Home() {
       </section>
 
       {/* ────────────────────────────────────────────────
-          9. WHY CHOOSE US — Phase 7.7 NEW
-      ──────────────────────────────────────────────── */}
-            {/* ────────────────────────────────────────────────
-          9. WHY CHOOSE US — Phase 7.7 PREMIUM Redesign
-             Glassmorphism Cards with Gradient Accents
+          9. WHY CHOOSE US — Premium glassmorphism redesign
       ──────────────────────────────────────────────── */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto bg-[#FFFDFB]">
         
@@ -476,7 +469,7 @@ export default async function Home() {
         </div>
 
         {/* Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
           
           {WHY_CHOOSE_US.map((card, index) => (
             <div 
