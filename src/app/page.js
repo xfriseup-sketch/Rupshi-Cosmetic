@@ -12,7 +12,7 @@ const bestSellers = [
     name: "Rose Glow Vitamin C Serum",
     price: 1490,
     image:
-      "https://images.unsplash.com/photo-1620916569876-0f0b8f1f0f1f?w=600&h=800&fit=crop",
+      "https://images.unsplash.com/photo-1620916569876-0a1a70ef4a0a?w=600&h=800&fit=crop",
     badge: "BESTSELLER",
     rating: 4.9,
   },
