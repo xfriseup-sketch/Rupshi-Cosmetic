@@ -7,7 +7,19 @@ html {
 }
 
 body {
-  @apply bg-pink-50 text-gray-800 antialiased;
+  @apply bg-[#fdf8f9] text-slate-800 antialiased;
+}
+
+/* Soft selection color matching brand */
+::selection {
+  background-color: #fce7f3;
+  color: #9d174d;
+}
+
+/* Refined focus ring */
+:focus-visible {
+  outline: 2px solid #f472b6;
+  outline-offset: 2px;
 }
 
 /* Animated checkmark draw for the order-success page */
@@ -15,4 +27,24 @@ body {
   to {
     stroke-dashoffset: 0;
   }
+}
+
+/* Subtle section divider glow */
+.section-glow {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(244, 114, 182, 0.15),
+    transparent
+  );
+  height: 1px;
+}
+
+/* Premium card hover utility */
+.card-lift {
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+}
+.card-lift:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 40px -12px rgba(219, 39, 119, 0.2);
 }
