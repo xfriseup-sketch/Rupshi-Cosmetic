@@ -29,50 +29,13 @@ const REVIEWS = [
 ];
 
 /** Trust bar items (cosmetic-store focused, Bengali + English subtitle) */
-{/* TRUST BAR - Premium Minimalist Line */}
-<section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 my-10">
-  <div className="border-y border-pink-100 py-6 bg-white/50 backdrop-blur-sm">
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-      
-      {/* Item 1 */}
-      <div className="flex items-center justify-center gap-3 group cursor-default">
-        <span className="text-2xl text-pink-500 group-hover:scale-110 transition-transform duration-300">🛡️</span>
-        <div className="text-left">
-          <span className="block font-semibold text-gray-900 text-sm">১০০% অরিজিনাল পণ্য</span>
-          <span className="block text-gray-500 text-xs">Authentic Guarantee</span>
-        </div>
-      </div>
+const TRUST_ITEMS = [
+  { icon: "✨", title: "উন্নত মানের উপাদান", sub: "Premium Ingredients" },
+  { icon: "🛡️", title: "২ বছরের ওয়ারেন্টি", sub: "Warranty Protection" },
+  { icon: "🚚", title: "১৫০০৳+ অর্ডারে ফ্রি ডেলিভারি", sub: "Free Shipping over ১৫০০৳" },
+  { icon: "💬", title: "২৪/৭ সাপোর্ট", sub: "Dedicated Support" },
+];
 
-      {/* Item 2 */}
-      <div className="flex items-center justify-center gap-3 group cursor-default">
-        <span className="text-2xl text-pink-500 group-hover:scale-110 transition-transform duration-300">💵</span>
-        <div className="text-left">
-          <span className="block font-semibold text-gray-900 text-sm">ক্যাশ অন ডেলিভারি</span>
-          <span className="block text-gray-500 text-xs">Pay after inspection</span>
-        </div>
-      </div>
-
-      {/* Item 3 */}
-      <div className="flex items-center justify-center gap-3 group cursor-default">
-        <span className="text-2xl text-pink-500 group-hover:scale-110 transition-transform duration-300">🌿</span>
-        <div className="text-left">
-          <span className="block font-semibold text-gray-900 text-sm">ক্রুয়েলটি-ফ্রি</span>
-          <span className="block text-gray-500 text-xs">Never tested on animals</span>
-        </div>
-      </div>
-
-      {/* Item 4 */}
-      <div className="flex items-center justify-center gap-3 group cursor-default">
-        <span className="text-2xl text-pink-500 group-hover:scale-110 transition-transform duration-300">🎧</span>
-        <div className="text-left">
-          <span className="block font-semibold text-gray-900 text-sm">বিউটি কনসালটেন্ট</span>
-          <span className="block text-gray-500 text-xs">Free skin advice</span>
-        </div>
-      </div>
-
-    </div>
-  </div>
-</section>
 /** "Why Choose Us" cards (Phase 7.7) */
 const WHY_CHOOSE_US = [
   {
@@ -477,88 +440,29 @@ export default async function Home() {
       {/* ────────────────────────────────────────────────
           9. WHY CHOOSE US — Phase 7.7 NEW
       ──────────────────────────────────────────────── */}
-     {/* WHY CHOOSE US SECTION */}
-<section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto bg-[#FFFDFB]">
-  
-  {/* Section Header */}
-  <div className="text-center max-w-2xl mx-auto mb-16">
-    <span className="text-pink-600 font-semibold text-xs tracking-widest uppercase bg-pink-100/60 px-4 py-1.5 rounded-full inline-block mb-3 border border-pink-200/50">
-      Glow With Confidence
-    </span>
-    <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-slate-900 leading-tight font-serif">
-      কেন রূপসী বেছে নেবেন?
-    </h2>
-    <p className="text-slate-600 mt-4 text-sm sm:text-base leading-relaxed">
-      আমরা নিয়ে আসছি প্রকৃতির সেরা উপাদান এবং বিজ্ঞানের সমন্বয়, আপনার ত্বকের প্রকৃত যত্নের জন্য।
-    </p>
-  </div>
-
-  {/* Cards Grid */}
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-    
-    {/* Card 1 */}
-    <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 text-center border border-pink-100 shadow-sm hover:shadow-xl hover:border-pink-300 transition-all duration-300 group hover:-translate-y-1">
-      <div className="w-16 h-16 bg-pink-50 text-pink-600 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-6 group-hover:bg-pink-500 group-hover:text-white transition-all duration-300 shadow-inner">
-        🍃
-      </div>
-      <h3 className="text-xl font-bold text-slate-900 mb-2 font-serif">১০০% অর্গানিক ও ভেগান</h3>
-      <p className="text-slate-600 text-sm leading-relaxed">
-        বিশুদ্ধ উদ্ভিজ্জ নির্যাস দিয়ে তৈরি, ক্ষতিকর পারাবেন এবং সালফেট মুক্ত।
-      </p>
-    </div>
-
-    {/* Card 2 */}
-    <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 text-center border border-pink-100 shadow-sm hover:shadow-xl hover:border-pink-300 transition-all duration-300 group hover:-translate-y-1">
-      <div className="w-16 h-16 bg-pink-50 text-pink-600 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-6 group-hover:bg-pink-500 group-hover:text-white transition-all duration-300 shadow-inner">
-        🧪
-      </div>
-      <h3 className="text-xl font-bold text-slate-900 mb-2 font-serif">ডার্মাটোলজিস্ট টেস্টেড</h3>
-      <p className="text-slate-600 text-sm leading-relaxed">
-        চর্মরোগ বিশেষজ্ঞদের দ্বারা ক্লিনিক্যালি টেস্টেড এবং সব ধরনের ত্বকের জন্য নিরাপদ।
-      </p>
-    </div>
-
-    {/* Card 3 */}
-    <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 text-center border border-pink-100 shadow-sm hover:shadow-xl hover:border-pink-300 transition-all duration-300 group hover:-translate-y-1">
-      <div className="w-16 h-16 bg-pink-50 text-pink-600 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-6 group-hover:bg-pink-500 group-hover:text-white transition-all duration-300 shadow-inner">
-        🐾
-      </div>
-      <h3 className="text-xl font-bold text-slate-900 mb-2 font-serif">ক্রুয়েলটি-ফ্রি</h3>
-      <p className="text-slate-600 text-sm leading-relaxed">
-        আমরা প্রকৃতি ও প্রাণীদের ভালোবাসি। কোনো পণ্য প্রাণীদের ওপর পরীক্ষা করা হয় না।
-      </p>
-    </div>
-
-    {/* Card 4 */}
-    <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 text-center border border-pink-100 shadow-sm hover:shadow-xl hover:border-pink-300 transition-all duration-300 group hover:-translate-y-1">
-      <div className="w-16 h-16 bg-pink-50 text-pink-600 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-6 group-hover:bg-pink-500 group-hover:text-white transition-all duration-300 shadow-inner">
-        🚀
-      </div>
-      <h3 className="text-xl font-bold text-slate-900 mb-2 font-serif">দ্রুত ডেলিভারি</h3>
-      <p className="text-slate-600 text-sm leading-relaxed">
-        দ্রুত, নিরাপদ এবং তাপমাত্রা নিয়ন্ত্রিত প্যাকেজিং নিশ্চিত করে যাতে পণ্য তাজা অবস্থায় পৌঁছায়।
-      </p>
-    </div>
-
-  </div>
-
-  {/* Trust Badge Bottom Bar */}
-  <div className="mt-16 bg-gradient-to-r from-pink-50 via-amber-50 to-pink-50 rounded-2xl p-6 border border-pink-100 flex flex-wrap items-center justify-around gap-6 text-center">
-    <div className="flex items-center gap-3 text-slate-700 font-medium text-sm">
-      <span className="text-pink-500 text-lg">↩️</span>
-      <span>সহজ ৭ দিনের রিটার্ন</span>
-    </div>
-    <div className="flex items-center gap-3 text-slate-700 font-medium text-sm">
-      <span className="text-pink-500 text-lg">✅</span>
-      <span>১০০% অথেনটিক গ্যারান্টি</span>
-    </div>
-    <div className="flex items-center gap-3 text-slate-700 font-medium text-sm">
-      <span className="text-pink-500 text-lg">😊</span>
-      <span>৫০,০০০+ সন্তুষ্ট গ্রাহক</span>
-    </div>
-  </div>
-
-</section>
+      <section className="bg-gray-50 py-16">
+        <div className="mx-auto max-w-6xl px-4">
+          <h2 className="mb-12 text-center text-3xl font-bold text-gray-900">
+            কেন রূপসী বেছে নেবেন?
+          </h2>
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+            {WHY_CHOOSE_US.map((card) => (
+              <div
+                key={card.title}
+                className="rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm transition-shadow hover:shadow-md"
+              >
+                <div className="mb-4 text-5xl">{card.icon}</div>
+                <h3 className="mb-3 text-xl font-bold text-gray-900">
+                  {card.title}
+                </h3>
+                <p className="text-sm leading-relaxed text-gray-600">
+                  {card.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* ────────────────────────────────────────────────
           10. NEWSLETTER SECTION
