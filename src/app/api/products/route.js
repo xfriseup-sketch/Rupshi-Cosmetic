@@ -121,10 +121,18 @@ export async function GET(request) {
       filter._id = idParam;
     }
 
-    // ---- featured & limit ----
-    if (sp.get("featured") === "true") filter.isFeatured = true;
+    // ---- featured & hotOffer (supports both true and false values) ----
+    const featuredParam = sp.get("featured");
+    if (featuredParam === "true") filter.isFeatured = true;
+    else if (featuredParam === "false") filter.isFeatured = false;
+
     // Phase 7.6: hot-offer filter for the homepage "হট অফার" section
-    if (sp.get("hotOffer") === "true") filter.isHotOffer = true;
+    const hotOfferParam = sp.get("hotOffer");
+    if (hotOfferParam === "true") filter.isHotOffer = true;
+    else if (hotOfferParam === "false") filter.isHotOffer = false;
+
+    // Phase 7.7: ?inStock=true → only products currently in stock
+    if (sp.get("inStock") === "true") filter.inStock = true;
 
     let limit = parseInt(sp.get("limit") || "0", 10);
     if (!Number.isFinite(limit) || limit <= 0) limit = 200;
