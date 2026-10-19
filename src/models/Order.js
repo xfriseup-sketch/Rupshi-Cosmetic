@@ -56,7 +56,16 @@ const OrderSchema = new mongoose.Schema(
       enum: ORDER_STATUSES,
       default: "pending",
     },
+    trackingNumber: {
+      type: String,
+      default: null,
+      trim: true,
+    },
     createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+    updatedAt: {
       type: Date,
       default: Date.now,
     },
@@ -64,12 +73,25 @@ const OrderSchema = new mongoose.Schema(
   { collection: "orders" }
 );
 
+OrderSchema.pre("save", function (next) {
+  this.updatedAt = new Date();
+  next();
+});
+
 let Order = mongoose.models.Order;
 
 if (!Order) {
   Order = mongoose.model("Order", OrderSchema);
 } else if (Order.schema.path("status")) {
   Order.schema.path("status").enumValues = ORDER_STATUSES;
+  if (!Order.schema.path("trackingNumber")) {
+    Order.schema.add({
+      trackingNumber: { type: String, default: null, trim: true },
+    });
+  }
+  if (!Order.schema.path("updatedAt")) {
+    Order.schema.add({ updatedAt: { type: Date, default: Date.now } });
+  }
 }
 
 export { ORDER_STATUSES };
