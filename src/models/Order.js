@@ -40,6 +40,17 @@ const OrderSchema = new mongoose.Schema(
       required: [true, "Total amount is required"],
       min: [0, "Total amount cannot be negative"],
     },
+    couponCode: {
+      type: String,
+      default: null,
+      trim: true,
+      uppercase: true,
+    },
+    discountAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     status: {
       type: String,
       enum: ORDER_STATUSES,
@@ -58,7 +69,6 @@ let Order = mongoose.models.Order;
 if (!Order) {
   Order = mongoose.model("Order", OrderSchema);
 } else if (Order.schema.path("status")) {
-  // Widen enum on hot-reload if an older model was compiled first
   Order.schema.path("status").enumValues = ORDER_STATUSES;
 }
 
