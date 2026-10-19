@@ -80,8 +80,8 @@ export default function GlobalFooter() {
                 </Link>
               </li>
               <li>
-                <Link href="/#reviews" className="transition-colors hover:text-rose-400">
-                  Customer Reviews
+                <Link href="/track-order" className="transition-colors hover:text-rose-400">
+                  Track Order
                 </Link>
               </li>
             </ul>
@@ -98,9 +98,9 @@ export default function GlobalFooter() {
                 </a>
               </li>
               <li>
-                <a href="#" className="transition-colors hover:text-rose-400">
+                <Link href="/track-order" className="transition-colors hover:text-rose-400">
                   Track Order
-                </a>
+                </Link>
               </li>
               <li>
                 <a href="#" className="transition-colors hover:text-rose-400">
