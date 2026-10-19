@@ -1,0 +1,363 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import ImageUploadField from "@/components/ImageUploadField";
+
+/** Small pink toggle switch */
+function ToggleSwitch({ checked, onChange, label, description }) {
+  return (
+    <label className="flex items-start gap-3 cursor-pointer select-none">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+          checked ? "bg-[#db2777]" : "bg-gray-300"
+        }`}
+      >
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+            checked ? "translate-x-6" : "translate-x-1"
+          }`}
+        />
+      </button>
+      <div>
+        <span className="text-sm font-medium text-gray-800">{label}</span>
+        {description && (
+          <p className="text-xs text-gray-500 mt-0.5">{description}</p>
+        )}
+      </div>
+    </label>
+  );
+}
+
+const DEFAULTS = {
+  noticeBar: {
+    text: "✨ Free Express Delivery on orders over ৳1,999! Code: GLOW2026 ✨",
+    isActive: true,
+    bgColor: "#e11d48",
+  },
+  heroSection: { isVisible: true },
+  categoriesSection: { isVisible: true, maxItems: 4 },
+  bestSellersSection: { isVisible: true, maxItems: 4 },
+  hotOffersSection: { isVisible: true, maxItems: 3 },
+  promoBanner: {
+    title: "Get Up to 35% OFF",
+    subtitle:
+      "Limited-time luxury deals on premium skincare & makeup. Glow starts now.",
+    buttonText: "Claim Deal Now",
+    buttonLink: "/shop?hotOffer=true",
+    imageUrl:
+      "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&h=600&fit=crop",
+    isActive: true,
+  },
+  newArrivalsSection: { isVisible: true, maxItems: 4 },
+  reviewsSection: { isVisible: true },
+  whyChooseUsSection: { isVisible: true },
+};
+
+export default function HomepageSettings() {
+  const [settings, setSettings] = useState(DEFAULTS);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/settings");
+      const data = await res.json().catch(() => null);
+      if (data?.success && data.settings) {
+        setSettings({ ...DEFAULTS, ...data.settings });
+      }
+    } catch {
+      /* use defaults */
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const update = (section, field, value) => {
+    setSettings((prev) => ({
+      ...prev,
+      [section]: { ...prev[section], [field]: value },
+    }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+      });
+      const data = await res.json().catch(() => null);
+
+      if (res.ok && data?.success) {
+        setMessage({ type: "success", text: "✅ Settings saved successfully!" });
+        if (data.settings) setSettings({ ...DEFAULTS, ...data.settings });
+      } else if (res.status === 503) {
+        setMessage({
+          type: "error",
+          text: "Database not configured. Set MONGODB_URI first.",
+        });
+      } else {
+        setMessage({
+          type: "error",
+          text: data?.message || "Failed to save settings",
+        });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Network error — try again" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#db2777] border-t-transparent" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-xl font-bold text-gray-900">🏠 Homepage Settings</h2>
+        <p className="mt-1 text-sm text-gray-500">
+          Control which sections appear on the homepage and edit their content.
+        </p>
+      </div>
+
+      {message && (
+        <div
+          className={`rounded-lg border px-4 py-2.5 text-sm ${
+            message.type === "success"
+              ? "border-green-200 bg-green-50 text-green-800"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
+        >
+          {message.text}
+        </div>
+      )}
+
+      {/* ── Notice Bar ── */}
+      <section className="rounded-xl border border-pink-100 bg-pink-50/50 p-5">
+        <h3 className="mb-4 text-base font-bold text-gray-800">
+          📢 Top Notice Bar
+        </h3>
+        <div className="space-y-4">
+          <ToggleSwitch
+            checked={settings.noticeBar?.isActive ?? true}
+            onChange={(v) => update("noticeBar", "isActive", v)}
+            label="Show Notice Bar"
+            description="Announcement strip at the very top of the page"
+          />
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Notice Text
+            </label>
+            <input
+              type="text"
+              value={settings.noticeBar?.text || ""}
+              onChange={(e) => update("noticeBar", "text", e.target.value)}
+              className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#db2777]"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Background Color
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={settings.noticeBar?.bgColor || "#e11d48"}
+                onChange={(e) => update("noticeBar", "bgColor", e.target.value)}
+                className="h-10 w-14 cursor-pointer rounded border border-pink-200"
+              />
+              <span className="text-sm text-gray-500">
+                {settings.noticeBar?.bgColor || "#e11d48"}
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Section Visibility Toggles ── */}
+      <section className="rounded-xl border border-pink-100 bg-white p-5">
+        <h3 className="mb-4 text-base font-bold text-gray-800">
+          👁️ Section Visibility
+        </h3>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <ToggleSwitch
+            checked={settings.heroSection?.isVisible ?? true}
+            onChange={(v) => update("heroSection", "isVisible", v)}
+            label="Hero Section"
+            description="Main banner with headline & CTA"
+          />
+          <ToggleSwitch
+            checked={settings.categoriesSection?.isVisible ?? true}
+            onChange={(v) => update("categoriesSection", "isVisible", v)}
+            label="Categories Section"
+            description="Explore Categories grid"
+          />
+          <ToggleSwitch
+            checked={settings.bestSellersSection?.isVisible ?? true}
+            onChange={(v) => update("bestSellersSection", "isVisible", v)}
+            label="Best Sellers"
+            description="Featured products grid"
+          />
+          <ToggleSwitch
+            checked={settings.hotOffersSection?.isVisible ?? true}
+            onChange={(v) => update("hotOffersSection", "isVisible", v)}
+            label="Hot Offers"
+            description="Discounted / hot-offer products"
+          />
+          <ToggleSwitch
+            checked={settings.newArrivalsSection?.isVisible ?? true}
+            onChange={(v) => update("newArrivalsSection", "isVisible", v)}
+            label="New Arrivals"
+            description="Latest products by date"
+          />
+          <ToggleSwitch
+            checked={settings.whyChooseUsSection?.isVisible ?? true}
+            onChange={(v) => update("whyChooseUsSection", "isVisible", v)}
+            label="Why Choose Us"
+            description="Trust / value proposition cards"
+          />
+          <ToggleSwitch
+            checked={settings.reviewsSection?.isVisible ?? true}
+            onChange={(v) => update("reviewsSection", "isVisible", v)}
+            label="Reviews Section"
+            description="Customer testimonials"
+          />
+        </div>
+      </section>
+
+      {/* ── Max Items ── */}
+      <section className="rounded-xl border border-pink-100 bg-white p-5">
+        <h3 className="mb-4 text-base font-bold text-gray-800">
+          🔢 Max Items per Section
+        </h3>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { key: "categoriesSection", label: "Categories" },
+            { key: "bestSellersSection", label: "Best Sellers" },
+            { key: "hotOffersSection", label: "Hot Offers" },
+            { key: "newArrivalsSection", label: "New Arrivals" },
+          ].map(({ key, label }) => (
+            <div key={key}>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                {label}
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={12}
+                value={settings[key]?.maxItems ?? 4}
+                onChange={(e) =>
+                  update(key, "maxItems", Math.min(12, Math.max(1, Number(e.target.value) || 1)))
+                }
+                className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#db2777]"
+              />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Promo Banner ── */}
+      <section className="rounded-xl border border-pink-100 bg-white p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-base font-bold text-gray-800">🎁 Promo Banner</h3>
+          <ToggleSwitch
+            checked={settings.promoBanner?.isActive ?? true}
+            onChange={(v) => update("promoBanner", "isActive", v)}
+            label="Active"
+          />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Title
+            </label>
+            <input
+              type="text"
+              value={settings.promoBanner?.title || ""}
+              onChange={(e) => update("promoBanner", "title", e.target.value)}
+              className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#db2777]"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Button Text
+            </label>
+            <input
+              type="text"
+              value={settings.promoBanner?.buttonText || ""}
+              onChange={(e) =>
+                update("promoBanner", "buttonText", e.target.value)
+              }
+              className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#db2777]"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Subtitle
+            </label>
+            <textarea
+              rows={2}
+              value={settings.promoBanner?.subtitle || ""}
+              onChange={(e) =>
+                update("promoBanner", "subtitle", e.target.value)
+              }
+              className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#db2777]"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Button Link
+            </label>
+            <input
+              type="text"
+              value={settings.promoBanner?.buttonLink || ""}
+              onChange={(e) =>
+                update("promoBanner", "buttonLink", e.target.value)
+              }
+              placeholder="/shop?hotOffer=true"
+              className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#db2777]"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <ImageUploadField
+              value={settings.promoBanner?.imageUrl || ""}
+              onChange={(url) => update("promoBanner", "imageUrl", url)}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Save */}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="inline-flex items-center gap-2 rounded-xl bg-[#db2777] px-8 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#9d174d] disabled:opacity-50"
+        >
+          {saving && (
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+          )}
+          {saving ? "Saving..." : "💾 Save Settings"}
+        </button>
+      </div>
+    </div>
+  );
+}
