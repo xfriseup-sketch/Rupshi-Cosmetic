@@ -16,15 +16,14 @@ function serialize(category) {
 
 /**
  * PUT /api/categories/[id]
- * Updates an existing category. Body: { name?, slug?, icon?, parentCategory?, isHomeVisible? }
  */
-export async function PUT(request, { params }) {
+export async function PUT(request, context) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
 
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
-        { success: false, message: "অবৈধ ক্যাটেগরি আইডি" },
+        { success: false, message: "Invalid category ID" },
         { status: 400 }
       );
     }
@@ -32,51 +31,48 @@ export async function PUT(request, { params }) {
     const body = await request.json().catch(() => null);
 
     const name = (body?.name || "").trim();
-    const icon = (body?.icon || "").trim() || "🛍️";
+    const icon = (body?.icon || "").trim() || "folder";
     let slug = (body?.slug || "").trim().toLowerCase();
 
     const errors = {};
-    if (!name) errors.name = "ক্যাটেগরির নাম আবশ্যক";
+    if (!name) errors.name = "Category name is required";
     if (!slug) slug = generateSlug(name);
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
-      errors.slug = "Slug-এ শুধু ছোট হাতের অক্ষর, সংখ্যা ও ড্যাশ ব্যবহার করুন";
+      errors.slug = "Slug may only contain lowercase letters, numbers, and dashes";
     }
 
-    // Phase 6 fields
     const isHomeVisible = body?.isHomeVisible === true || body?.isHomeVisible === "true";
     let parentCategory = null;
     const parentRaw = body?.parentCategory;
     if (parentRaw && parentRaw !== "null" && parentRaw !== "") {
       if (!mongoose.Types.ObjectId.isValid(parentRaw)) {
-        errors.parentCategory = "অবৈধ প্যারেন্ট ক্যাটাগরি";
+        errors.parentCategory = "Invalid parent category";
       } else if (parentRaw === id) {
-        errors.parentCategory = "নিজেকেই প্যারেন্ট করা যাবে না";
+        errors.parentCategory = "A category cannot be its own parent";
       } else {
         const parentDoc = await Category.findById(parentRaw).lean();
         if (!parentDoc) {
-          errors.parentCategory = "প্যারেন্ট ক্যাটাগরি পাওয়া যায়নি";
+          errors.parentCategory = "Parent category not found";
         } else if (parentDoc.parentCategory) {
-          errors.parentCategory = "সাব-ক্যাটাগরির নিচে আর সাব-ক্যাটাগরি রাখা যাবে না";
+          errors.parentCategory = "Cannot nest under a sub-category";
         } else {
           parentCategory = parentDoc._id;
         }
       }
     }
 
-    // A category that HAS children cannot itself become a sub-category
     if (!errors.parentCategory && parentCategory) {
       const childCount = await Category.countDocuments({ parentCategory: id });
       if (childCount > 0) {
-        errors.parentCategory = `এই ক্যাটাগরিতে ${childCount}টি সাব-ক্যাটাগরি আছে — তাই একে সাব-ক্যাটাগরি করা যাবে না`;
+        errors.parentCategory = `This category has ${childCount} sub-categories and cannot become a sub-category itself`;
       }
     }
 
-    // Sub-categories are never home-visible on their own
     const finalHomeVisible = parentCategory ? false : isHomeVisible;
 
     if (Object.keys(errors).length > 0) {
       return NextResponse.json(
-        { success: false, message: "ক্যাটেগরি তথ্যে সমস্যা আছে", errors },
+        { success: false, message: "Validation failed", errors },
         { status: 400 }
       );
     }
@@ -84,14 +80,13 @@ export async function PUT(request, { params }) {
     const conn = await dbConnect();
     if (!conn) return dbNotConfiguredResponse();
 
-    // Duplicate check excluding the current document
     const duplicate = await Category.findOne({
       _id: { $ne: id },
       $or: [{ name }, { slug }],
     }).lean();
     if (duplicate) {
       return NextResponse.json(
-        { success: false, message: "এই নাম বা slug দিয়ে অন্য একটি ক্যাটেগরি আছে" },
+        { success: false, message: "Another category already uses this name or slug" },
         { status: 409 }
       );
     }
@@ -104,32 +99,20 @@ export async function PUT(request, { params }) {
 
     if (!category) {
       return NextResponse.json(
-        { success: false, message: "ক্যাটেগরি পাওয়া যায়নি" },
+        { success: false, message: "Category not found" },
         { status: 404 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      message: "ক্যাটেগরি আপডেট হয়েছে",
+      message: "Category updated",
       category: serialize(category),
     });
   } catch (error) {
     console.error("Error updating category:", error);
-
-    if (error instanceof mongoose.Error.ValidationError) {
-      const fieldErrors = {};
-      for (const [field, err] of Object.entries(error.errors)) {
-        fieldErrors[field] = err.message;
-      }
-      return NextResponse.json(
-        { success: false, message: error.message || "ক্যাটেগরি সেভ করা যায়নি", errors: fieldErrors },
-        { status: 400 }
-      );
-    }
-
     return NextResponse.json(
-      { success: false, message: error?.message || "ক্যাটেগরি আপডেট করা যায়নি" },
+      { success: false, message: error?.message || "Could not update category" },
       { status: 500 }
     );
   }
@@ -137,15 +120,14 @@ export async function PUT(request, { params }) {
 
 /**
  * DELETE /api/categories/[id]
- * Removes a category. Refuses to delete a category that still has products.
  */
-export async function DELETE(request, { params }) {
+export async function DELETE(request, context) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
 
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
-        { success: false, message: "অবৈধ ক্যাটেগরি আইডি" },
+        { success: false, message: "Invalid category ID" },
         { status: 400 }
       );
     }
@@ -156,31 +138,29 @@ export async function DELETE(request, { params }) {
     const category = await Category.findById(id).lean();
     if (!category) {
       return NextResponse.json(
-        { success: false, message: "ক্যাটেগরি পাওয়া যায়নি" },
+        { success: false, message: "Category not found" },
         { status: 404 }
       );
     }
 
-    // Guard against orphaning sub-categories that belong to this category
     const childCount = await Category.countDocuments({ parentCategory: id });
     if (childCount > 0) {
       return NextResponse.json(
         {
           success: false,
-          message: `এই ক্যাটেগরিতে ${childCount}টি সাব-ক্যাটাগরি আছে — আগে সাব-ক্যাটাগরিগুলো মুছুন`,
+          message: `This category has ${childCount} sub-categories. Delete them first.`,
         },
         { status: 409 }
       );
     }
 
-    // Guard against orphaning products that belong to this category
     const { default: Product } = await import("@/models/Product");
     const productCount = await Product.countDocuments({ category: category.name });
     if (productCount > 0) {
       return NextResponse.json(
         {
           success: false,
-          message: `এই ক্যাটেগরিতে ${productCount}টি প্রোডাক্ট আছে — আগে প্রোডাক্টগুলো সরান বা মুছুন`,
+          message: `This category has ${productCount} products. Move or delete them first.`,
         },
         { status: 409 }
       );
@@ -190,12 +170,12 @@ export async function DELETE(request, { params }) {
 
     return NextResponse.json({
       success: true,
-      message: "ক্যাটেগরি মুছে ফেলা হয়েছে",
+      message: "Category deleted",
     });
   } catch (error) {
     console.error("Error deleting category:", error);
     return NextResponse.json(
-      { success: false, message: "ক্যাটেগরি মুছে ফেলা যায়নি" },
+      { success: false, message: "Could not delete category" },
       { status: 500 }
     );
   }
