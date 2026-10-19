@@ -57,6 +57,17 @@ const DEFAULTS = {
   whyChooseUsSection: { isVisible: true },
 };
 
+function mergeSettings(incoming) {
+  if (!incoming || typeof incoming !== "object") return { ...DEFAULTS };
+  const out = JSON.parse(JSON.stringify(DEFAULTS));
+  for (const key of Object.keys(DEFAULTS)) {
+    if (incoming[key] != null && typeof incoming[key] === "object") {
+      out[key] = { ...out[key], ...incoming[key] };
+    }
+  }
+  return out;
+}
+
 export default function HomepageSettings() {
   const [settings, setSettings] = useState(DEFAULTS);
   const [loading, setLoading] = useState(true);
@@ -65,10 +76,10 @@ export default function HomepageSettings() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/settings");
+      const res = await fetch("/api/settings", { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (data?.success && data.settings) {
-        setSettings({ ...DEFAULTS, ...data.settings });
+        setSettings(mergeSettings(data.settings));
       }
     } catch {
       /* use defaults */
@@ -100,8 +111,8 @@ export default function HomepageSettings() {
       const data = await res.json().catch(() => null);
 
       if (res.ok && data?.success) {
-        setMessage({ type: "success", text: "Settings saved successfully" });
-        if (data.settings) setSettings({ ...DEFAULTS, ...data.settings });
+        setMessage({ type: "success", text: "Settings saved — refresh the homepage to see changes" });
+        if (data.settings) setSettings(mergeSettings(data.settings));
       } else if (res.status === 503) {
         setMessage({
           type: "error",
