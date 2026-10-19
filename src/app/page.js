@@ -11,30 +11,11 @@ import {
   Gem,
   Sparkles,
 } from "lucide-react";
+import { getHomePageData } from "@/lib/homeData";
 
+/* Force dynamic — never cache homepage so Admin changes show immediately */
 export const dynamic = "force-dynamic";
-
-function apiUrl(path) {
-  if (process.env.NEXT_PUBLIC_BASE_URL) {
-    return `${process.env.NEXT_PUBLIC_BASE_URL.replace(/\/$/, "")}${path}`;
-  }
-  const vercelUrl = process.env.VERCEL_URL;
-  if (vercelUrl) return `https://${vercelUrl}${path}`;
-  return `http://localhost:${process.env.PORT || 3000}${path}`;
-}
-
-async function safeFetch(url) {
-  try {
-    const res = await fetch(url, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
-  }
-}
+export const revalidate = 0;
 
 function formatBDT(amount) {
   return `৳${Number(amount || 0).toLocaleString("en-BD")}`;
@@ -66,31 +47,6 @@ function toCardProduct(p) {
     inStock: p.inStock !== false,
   };
 }
-
-const DEFAULT_SETTINGS = {
-  noticeBar: {
-    text: "Free Express Delivery on orders over ৳1,999! Code: GLOW2026",
-    isActive: true,
-    bgColor: "#e11d48",
-  },
-  heroSection: { isVisible: true },
-  categoriesSection: { isVisible: true, maxItems: 4 },
-  bestSellersSection: { isVisible: true, maxItems: 4 },
-  hotOffersSection: { isVisible: true, maxItems: 3 },
-  promoBanner: {
-    title: "Get Up to 35% OFF",
-    subtitle:
-      "Limited-time luxury deals on premium skincare & makeup. Glow starts now.",
-    buttonText: "Claim Deal Now",
-    buttonLink: "/shop?hotOffer=true",
-    imageUrl:
-      "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&h=600&fit=crop",
-    isActive: true,
-  },
-  newArrivalsSection: { isVisible: true, maxItems: 4 },
-  reviewsSection: { isVisible: true },
-  whyChooseUsSection: { isVisible: true },
-};
 
 const trustItems = [
   { Icon: ShieldCheck, title: "100% Authentic", subtitle: "Direct from top brands" },
@@ -256,67 +212,21 @@ function EmptyState({ message }) {
 }
 
 export default async function Home() {
-  const settingsRes = await safeFetch(apiUrl("/api/settings"));
-  const settings = {
-    ...DEFAULT_SETTINGS,
-    ...(settingsRes?.settings || {}),
-  };
+  // Direct MongoDB queries — no HTTP self-fetch (was silently failing on Vercel)
+  const { settings, categories, bestSellers: rawBest, hotOffers: rawHot, newArrivals: rawNew } =
+    await getHomePageData();
 
-  const catLimit = settings.categoriesSection?.maxItems || 4;
-  const featuredLimit = settings.bestSellersSection?.maxItems || 4;
-  const hotLimit = settings.hotOffersSection?.maxItems || 3;
-  const newLimit = settings.newArrivalsSection?.maxItems || 4;
+  const bestSellers = rawBest.map(toCardProduct);
+  const hotOffers = rawHot.map(toCardProduct);
+  const newArrivals = rawNew.map(toCardProduct);
 
-  const [catData, featuredData, hotData, newestData] = await Promise.all([
-    safeFetch(apiUrl("/api/categories?homeVisible=true")),
-    safeFetch(apiUrl(`/api/products?featured=true&limit=${featuredLimit}`)),
-    safeFetch(apiUrl(`/api/products?hotOffer=true&limit=${hotLimit}`)),
-    safeFetch(apiUrl(`/api/products?sort=newest&limit=${newLimit}`)),
-  ]);
-
-  const catTree =
-    catData?.success && Array.isArray(catData.tree) ? catData.tree : [];
-  let categories =
-    catTree.length > 0
-      ? catTree.map((c) => ({
-          name: c.name,
-          icon: c.icon || "",
-          slug: c.slug || c.name,
-          count: (c.children || []).length || "",
-        }))
-      : catData?.success && Array.isArray(catData.categories)
-      ? catData.categories
-          .filter((c) => !c.parentCategory)
-          .map((c) => ({
-            name: c.name,
-            icon: c.icon || "",
-            slug: c.slug || c.name,
-            count: "",
-          }))
-      : [];
-  categories = categories.slice(0, catLimit);
-
-  const bestSellers =
-    featuredData?.success && Array.isArray(featuredData.products)
-      ? featuredData.products.map(toCardProduct)
-      : [];
-
-  const hotOffers =
-    hotData?.success && Array.isArray(hotData.products)
-      ? hotData.products.map(toCardProduct)
-      : [];
-
-  const newArrivals =
-    newestData?.success && Array.isArray(newestData.products)
-      ? newestData.products.map(toCardProduct)
-      : [];
-
-  const notice = settings.noticeBar || DEFAULT_SETTINGS.noticeBar;
-  const promo = settings.promoBanner || DEFAULT_SETTINGS.promoBanner;
+  const notice = settings.noticeBar;
+  const promo = settings.promoBanner;
 
   return (
     <div className="min-h-screen bg-[#fdf8f9] text-slate-800">
-      {notice.isActive && (
+      {/* Notice Bar — driven by SiteSettings.noticeBar */}
+      {notice?.isActive && (
         <div
           className="py-2.5 text-center text-sm font-medium text-white"
           style={{ backgroundColor: notice.bgColor || "#e11d48" }}
@@ -398,13 +308,14 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* Categories — only isHomeVisible mains from DB */}
       {settings.categoriesSection?.isVisible !== false && (
         <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:py-20">
           <h2 className="mb-10 text-center font-serif text-3xl font-bold text-slate-900 sm:text-4xl">
             Explore Categories
           </h2>
           {categories.length === 0 ? (
-            <EmptyState message="No categories available yet. Add some from the Admin panel." />
+            <EmptyState message="No categories on home yet. Toggle Show on Home in Admin → Categories." />
           ) : (
             <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-4">
               {categories.map((cat) => (
@@ -413,13 +324,17 @@ export default async function Home() {
                   href={`/shop?category=${encodeURIComponent(cat.slug)}`}
                   className="group flex flex-col items-center rounded-3xl border border-rose-100 bg-white p-8 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-rose-200 hover:shadow-lg hover:shadow-rose-100/50"
                 >
-                  <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-rose-50 to-amber-50 text-3xl transition-transform duration-300 group-hover:scale-110">
-                    {cat.icon || <Sparkles size={32} className="text-rose-400" />}
+                  <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-rose-50 to-amber-50 transition-transform duration-300 group-hover:scale-110">
+                    {cat.icon && cat.icon.length <= 4 ? (
+                      <span className="text-3xl">{cat.icon}</span>
+                    ) : (
+                      <Sparkles size={32} className="text-rose-400" />
+                    )}
                   </div>
                   <h3 className="text-base font-bold text-slate-800 group-hover:text-rose-600">
                     {cat.name}
                   </h3>
-                  {cat.count !== "" && (
+                  {cat.count > 0 && (
                     <p className="mt-1 text-xs text-slate-500">
                       {cat.count} sub-categories
                     </p>
@@ -431,6 +346,7 @@ export default async function Home() {
         </section>
       )}
 
+      {/* Best Sellers — isFeatured === true */}
       {settings.bestSellersSection?.isVisible !== false && (
         <section className="bg-white py-16 lg:py-20">
           <div className="mx-auto max-w-7xl px-4 sm:px-6">
@@ -444,7 +360,7 @@ export default async function Home() {
             </div>
             <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
               {bestSellers.length === 0 ? (
-                <EmptyState message="No featured products yet. Mark products as Featured in Admin." />
+                <EmptyState message="No featured products yet. Mark products as Featured in Admin → Products." />
               ) : (
                 bestSellers.map((p) => <ProductCard key={p.id} product={p} />)
               )}
@@ -453,6 +369,7 @@ export default async function Home() {
         </section>
       )}
 
+      {/* Hot Offers — isHotOffer === true */}
       {settings.hotOffersSection?.isVisible !== false && (
         <section className="bg-gradient-to-br from-amber-50 via-rose-50 to-amber-50 py-16 lg:py-20">
           <div className="mx-auto max-w-7xl px-4 sm:px-6">
@@ -466,7 +383,7 @@ export default async function Home() {
             </div>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {hotOffers.length === 0 ? (
-                <EmptyState message="No hot offers yet. Toggle Hot Offer on products in Admin." />
+                <EmptyState message="No hot offers yet. Toggle Hot Offer on products in Admin → Products." />
               ) : (
                 hotOffers.map((p) => <ProductCard key={p.id} product={p} />)
               )}
@@ -475,7 +392,8 @@ export default async function Home() {
         </section>
       )}
 
-      {promo.isActive && (
+      {/* Promo Banner — from SiteSettings.promoBanner */}
+      {promo?.isActive && (
         <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
           <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-rose-900 via-rose-800 to-amber-900">
             <div className="grid items-center gap-8 p-8 sm:p-12 lg:grid-cols-2">
@@ -493,7 +411,13 @@ export default async function Home() {
               </div>
               {promo.imageUrl && (
                 <div className="relative mx-auto hidden h-56 w-full max-w-sm overflow-hidden rounded-2xl lg:block">
-                  <Image src={promo.imageUrl} alt="Promo" width={400} height={300} className="h-full w-full object-cover" />
+                  <Image
+                    src={promo.imageUrl}
+                    alt="Promo"
+                    width={400}
+                    height={300}
+                    className="h-full w-full object-cover"
+                  />
                 </div>
               )}
             </div>
@@ -501,6 +425,7 @@ export default async function Home() {
         </section>
       )}
 
+      {/* New Arrivals — latest by createdAt */}
       {settings.newArrivalsSection?.isVisible !== false && (
         <section className="bg-white py-16 lg:py-20">
           <div className="mx-auto max-w-7xl px-4 sm:px-6">
