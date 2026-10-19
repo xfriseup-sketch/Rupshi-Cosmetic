@@ -2,8 +2,7 @@ import "./globals.css";
 import { Inter } from "next/font/google";
 import { CartProvider } from "@/context/CartContext";
 import Toast from "@/components/Toast";
-import Navbar from "@/components/Navbar";
-import GlobalFooter from "@/components/Footer";
+import ClientShell from "@/components/ClientShell";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -21,11 +20,7 @@ export default function RootLayout({ children }) {
     <html lang="bn">
       <body className={`${inter.className} antialiased`}>
         <CartProvider>
-          <div className="flex min-h-screen flex-col bg-[#fdf8f9]">
-            <Navbar />
-            <main className="flex-1">{children}</main>
-            <GlobalFooter />
-          </div>
+          <ClientShell>{children}</ClientShell>
           <Toast />
         </CartProvider>
       </body>
