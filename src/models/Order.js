@@ -1,9 +1,14 @@
 import mongoose from "mongoose";
 
-/**
- * Order schema — stores customer info, purchased items snapshot,
- * total amount and order status.
- */
+const ORDER_STATUSES = [
+  "pending",
+  "confirmed",
+  "processing",
+  "shipped",
+  "delivered",
+  "cancelled",
+];
+
 const OrderSchema = new mongoose.Schema(
   {
     customerName: {
@@ -15,7 +20,6 @@ const OrderSchema = new mongoose.Schema(
       type: String,
       required: [true, "Phone number is required"],
       trim: true,
-      // Accepts local (01XXXXXXXXX) and international (+8801XXXXXXXXX) formats
       match: [/^(\+?8801|01)[3-9]\d{8}$/, "Please provide a valid Bangladeshi phone number"],
     },
     address: {
@@ -38,7 +42,7 @@ const OrderSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "processing", "delivered"],
+      enum: ORDER_STATUSES,
       default: "pending",
     },
     createdAt: {
@@ -49,7 +53,14 @@ const OrderSchema = new mongoose.Schema(
   { collection: "orders" }
 );
 
-// Prevent overwriting the model on hot reloads / repeated imports
-const Order = mongoose.models.Order || mongoose.model("Order", OrderSchema);
+let Order = mongoose.models.Order;
 
+if (!Order) {
+  Order = mongoose.model("Order", OrderSchema);
+} else if (Order.schema.path("status")) {
+  // Widen enum on hot-reload if an older model was compiled first
+  Order.schema.path("status").enumValues = ORDER_STATUSES;
+}
+
+export { ORDER_STATUSES };
 export default Order;
