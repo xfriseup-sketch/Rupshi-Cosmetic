@@ -10,8 +10,9 @@ export const metadata = {
 };
 
 export default async function TrackOrderPage({ searchParams }) {
-  const id = typeof searchParams?.id === "string" ? searchParams.id : "";
-  const phone = typeof searchParams?.phone === "string" ? searchParams.phone : "";
+  const params = await searchParams;
+  const id = typeof params?.id === "string" ? params.id : "";
+  const phone = typeof params?.phone === "string" ? params.phone : "";
 
   let order = null;
   let error = "";
