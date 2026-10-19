@@ -2,35 +2,33 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/mongodb";
 import { dbNotConfiguredResponse } from "@/lib/dbStatus";
-import Order from "@/models/Order";
+import Order, { ORDER_STATUSES } from "@/models/Order";
 import Product from "@/models/Product";
 
-// Orders are read/written live — never cache this route
 export const dynamic = "force-dynamic";
 
-const SHIPPING_COST = 60; // Fixed delivery charge in BDT (must match frontend)
+const SHIPPING_COST = 60;
 
-/**
- * Normalize an incoming id (Mongo ObjectId string or product _id) to a string.
- */
 function toIdString(value) {
   if (!value) return null;
   return typeof value === "object" && value._id ? String(value._id) : String(value);
 }
 
-/**
- * POST /api/orders
- * Receives { customerName, phone, address, items }, validates the data,
- * verifies product prices against MongoDB server-side, computes the total
- * amount and saves the order. Returns the created order on success.
- */
+function serializeOrder(order) {
+  return {
+    ...order,
+    _id: order._id.toString(),
+    createdAt: order.createdAt ? order.createdAt.toISOString() : null,
+  };
+}
+
 export async function POST(request) {
   try {
     const body = await request.json().catch(() => null);
 
     if (!body || typeof body !== "object") {
       return NextResponse.json(
-        { success: false, message: "অবৈধ রিকোয়েস্ট বডি" },
+        { success: false, message: "Invalid request body" },
         { status: 400 }
       );
     }
@@ -40,20 +38,19 @@ export async function POST(request) {
     const address = (body.address || "").trim();
     const rawItems = Array.isArray(body.items) ? body.items : [];
 
-    // ---- Basic field validation (mirrors the client form) ----
     const errors = {};
-    if (!customerName) errors.customerName = "নাম আবশ্যক";
+    if (!customerName) errors.customerName = "Name is required";
     if (!phone) {
-      errors.phone = "ফোন নম্বর আবশ্যক";
+      errors.phone = "Phone is required";
     } else if (!/^(\+?8801|01)[3-9]\d{8}$/.test(phone)) {
-      errors.phone = "সঠিক ফোন নম্বর দিন (যেমন: 01XXXXXXXXX)";
+      errors.phone = "Invalid Bangladeshi phone number";
     }
-    if (!address) errors.address = "ঠিকানা আবশ্যক";
-    if (rawItems.length === 0) errors.items = "কার্ট খালি";
+    if (!address) errors.address = "Address is required";
+    if (rawItems.length === 0) errors.items = "Cart is empty";
 
     if (Object.keys(errors).length > 0) {
       return NextResponse.json(
-        { success: false, message: "প্রদত্ত তথ্যে সমস্যা আছে", errors },
+        { success: false, message: "Validation failed", errors },
         { status: 400 }
       );
     }
@@ -61,18 +58,13 @@ export async function POST(request) {
     const conn = await dbConnect();
     if (!conn) return dbNotConfiguredResponse();
 
-    // ---- Server-side price verification against DB ----
     const objectIds = rawItems
       .map((item) => toIdString(item.productId ?? item._id ?? item.id))
       .filter((id) => id && mongoose.Types.ObjectId.isValid(id));
 
     if (objectIds.length !== rawItems.length) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "প্রোডাক্ট আইডিতে সমস্যা আছে",
-          errors: { items: "অবৈধ প্রোডাক্ট" },
-        },
+        { success: false, message: "Invalid product IDs", errors: { items: "Invalid product" } },
         { status: 400 }
       );
     }
@@ -87,20 +79,20 @@ export async function POST(request) {
 
       if (!product) {
         return NextResponse.json(
-          {
-            success: false,
-            message: "কার্টের কিছু পণ্য এখন উপলব্ধ নয়",
-            errors: { items: "পণ্য পাওয়া যায়নি" },
-          },
+          { success: false, message: "Some products are unavailable", errors: { items: "Not found" } },
           { status: 400 }
         );
       }
 
       const quantity = Math.max(1, Math.floor(Number(raw.quantity) || 1));
+      const unitPrice =
+        product.discountPrice != null && product.discountPrice < product.price
+          ? product.discountPrice
+          : product.price;
       items.push({
         productId: id,
         name: product.name,
-        price: product.price,
+        price: unitPrice,
         quantity,
       });
     }
@@ -108,61 +100,42 @@ export async function POST(request) {
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const totalAmount = subtotal + SHIPPING_COST;
 
-    // ---- Save the order ----
-    let order;
-    try {
-      order = await Order.create({
-        customerName,
-        phone,
-        address,
-        items,
-        totalAmount,
-      });
-    } catch (error) {
-      if (error instanceof mongoose.Error.ValidationError) {
-        const fieldErrors = {};
-        for (const [field, err] of Object.entries(error.errors)) {
-          fieldErrors[field] = err.message;
-        }
-        return NextResponse.json(
-          { success: false, message: "অর্ডার সেভ করা যায়নি", errors: fieldErrors },
-          { status: 400 }
-        );
-      }
-      throw error;
-    }
+    const order = await Order.create({
+      customerName,
+      phone,
+      address,
+      items,
+      totalAmount,
+    });
 
     return NextResponse.json(
       {
         success: true,
-        message: "আপনার অর্ডার সফলভাবে গ্রহণ করা হয়েছে!",
+        message: "Order placed successfully",
         orderId: order._id.toString(),
-        order: {
-          _id: order._id.toString(),
-          customerName: order.customerName,
-          phone: order.phone,
-          address: order.address,
-          items: order.items,
-          totalAmount: order.totalAmount,
-          status: order.status,
-          createdAt: order.createdAt.toISOString(),
-        },
+        order: serializeOrder(order.toObject()),
       },
       { status: 201 }
     );
   } catch (error) {
     console.error("Error creating order:", error);
+    if (error instanceof mongoose.Error.ValidationError) {
+      const fieldErrors = {};
+      for (const [field, err] of Object.entries(error.errors)) {
+        fieldErrors[field] = err.message;
+      }
+      return NextResponse.json(
+        { success: false, message: "Could not save order", errors: fieldErrors },
+        { status: 400 }
+      );
+    }
     return NextResponse.json(
-      { success: false, message: "অর্ডার গ্রহণ করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।" },
+      { success: false, message: "Could not place order. Please try again." },
       { status: 500 }
     );
   }
 }
 
-/**
- * GET /api/orders
- * Returns all orders (useful for admin/debugging in this demo phase).
- */
 export async function GET() {
   try {
     const conn = await dbConnect();
@@ -173,16 +146,71 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       count: orders.length,
-      orders: orders.map((order) => ({
-        ...order,
-        _id: order._id.toString(),
-        createdAt: order.createdAt ? order.createdAt.toISOString() : null,
-      })),
+      orders: orders.map(serializeOrder),
     });
   } catch (error) {
     console.error("Error fetching orders:", error);
     return NextResponse.json(
-      { success: false, message: "অর্ডার লোড করা যায়নি" },
+      { success: false, message: "Could not load orders" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PUT /api/orders?id=<orderId>
+ * Updates order status (admin panel).
+ * Body: { status: "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled" }
+ */
+export async function PUT(request) {
+  try {
+    const id = request.nextUrl.searchParams.get("id");
+
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid order ID" },
+        { status: 400 }
+      );
+    }
+
+    const body = await request.json().catch(() => null);
+    const status = (body?.status || "").trim().toLowerCase();
+
+    if (!ORDER_STATUSES.includes(status)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `Invalid status. Allowed: ${ORDER_STATUSES.join(", ")}`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const conn = await dbConnect();
+    if (!conn) return dbNotConfiguredResponse();
+
+    const order = await Order.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true, runValidators: true }
+    ).lean();
+
+    if (!order) {
+      return NextResponse.json(
+        { success: false, message: "Order not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Order status updated",
+      order: serializeOrder(order),
+    });
+  } catch (error) {
+    console.error("Error updating order:", error);
+    return NextResponse.json(
+      { success: false, message: error?.message || "Could not update order" },
       { status: 500 }
     );
   }
