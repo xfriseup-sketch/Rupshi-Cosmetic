@@ -2,8 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 
 /* ──────────────────────────────────────────────────────────
-   Phase 8.0 — Dynamic Homepage (Luxury Rose design preserved)
-   Fetches real data from MongoDB via API routes.
+   Phase 8.1 — Dynamic Homepage controlled by SiteSettings
+   Luxury Rose design preserved. Sections toggle from Admin.
 ────────────────────────────────────────────────────────── */
 
 export const dynamic = "force-dynamic";
@@ -36,7 +36,6 @@ function formatBDT(amount) {
   return `৳${Number(amount || 0).toLocaleString("en-BD")}`;
 }
 
-/** Map a DB product → card shape used by the Luxury Rose design */
 function toCardProduct(p) {
   const hasDiscount =
     p.discountPrice != null && Number(p.discountPrice) < Number(p.price);
@@ -64,7 +63,30 @@ function toCardProduct(p) {
   };
 }
 
-/* ── Static content (not from DB) ── */
+const DEFAULT_SETTINGS = {
+  noticeBar: {
+    text: "✨ Free Express Delivery on orders over ৳1,999! Code: GLOW2026 ✨",
+    isActive: true,
+    bgColor: "#e11d48",
+  },
+  heroSection: { isVisible: true },
+  categoriesSection: { isVisible: true, maxItems: 4 },
+  bestSellersSection: { isVisible: true, maxItems: 4 },
+  hotOffersSection: { isVisible: true, maxItems: 3 },
+  promoBanner: {
+    title: "Get Up to 35% OFF",
+    subtitle:
+      "Limited-time luxury deals on premium skincare & makeup. Glow starts now.",
+    buttonText: "Claim Deal Now",
+    buttonLink: "/shop?hotOffer=true",
+    imageUrl:
+      "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&h=600&fit=crop",
+    isActive: true,
+  },
+  newArrivalsSection: { isVisible: true, maxItems: 4 },
+  reviewsSection: { isVisible: true },
+  whyChooseUsSection: { isVisible: true },
+};
 
 const trustItems = [
   { icon: "🏆", title: "100% Authentic", subtitle: "Direct from top brands" },
@@ -122,8 +144,6 @@ const reviews = [
       "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=face",
   },
 ];
-
-/* ── UI Components ── */
 
 function StarRating({ rating }) {
   return (
@@ -230,17 +250,28 @@ function EmptyState({ message }) {
 /* ── Page ── */
 
 export default async function Home() {
+  // 1) Load settings first so limits feed into product fetches
+  const settingsRes = await safeFetch(apiUrl("/api/settings"));
+  const settings = {
+    ...DEFAULT_SETTINGS,
+    ...(settingsRes?.settings || {}),
+  };
+
+  const catLimit = settings.categoriesSection?.maxItems || 4;
+  const featuredLimit = settings.bestSellersSection?.maxItems || 4;
+  const hotLimit = settings.hotOffersSection?.maxItems || 3;
+  const newLimit = settings.newArrivalsSection?.maxItems || 4;
+
   const [catData, featuredData, hotData, newestData] = await Promise.all([
     safeFetch(apiUrl("/api/categories?homeVisible=true")),
-    safeFetch(apiUrl("/api/products?featured=true&limit=4")),
-    safeFetch(apiUrl("/api/products?hotOffer=true&limit=3")),
-    safeFetch(apiUrl("/api/products?sort=newest&limit=4")),
+    safeFetch(apiUrl(`/api/products?featured=true&limit=${featuredLimit}`)),
+    safeFetch(apiUrl(`/api/products?hotOffer=true&limit=${hotLimit}`)),
+    safeFetch(apiUrl(`/api/products?sort=newest&limit=${newLimit}`)),
   ]);
 
-  // Categories — prefer tree (main + children), fall back to flat list
   const catTree =
     catData?.success && Array.isArray(catData.tree) ? catData.tree : [];
-  const categories =
+  let categories =
     catTree.length > 0
       ? catTree.map((c) => ({
           name: c.name,
@@ -258,6 +289,7 @@ export default async function Home() {
             count: "",
           }))
       : [];
+  categories = categories.slice(0, catLimit);
 
   const bestSellers =
     featuredData?.success && Array.isArray(featuredData.products)
@@ -274,60 +306,70 @@ export default async function Home() {
       ? newestData.products.map(toCardProduct)
       : [];
 
+  const notice = settings.noticeBar || DEFAULT_SETTINGS.noticeBar;
+  const promo = settings.promoBanner || DEFAULT_SETTINGS.promoBanner;
+
   return (
     <div className="min-h-screen bg-[#fdf8f9] text-slate-800">
       {/* ── A. TOP ANNOUNCEMENT BAR ── */}
-      <div className="bg-rose-600 py-2.5 text-center text-sm font-medium text-white">
-        ✨ Free Express Delivery on orders over ৳1,999! Code: GLOW2026 ✨
-      </div>
+      {notice.isActive && (
+        <div
+          className="py-2.5 text-center text-sm font-medium text-white"
+          style={{ backgroundColor: notice.bgColor || "#e11d48" }}
+        >
+          {notice.text}
+        </div>
+      )}
 
       {/* ── B. HERO SECTION ── */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-rose-50 via-amber-50/40 to-rose-50">
-        <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:gap-16 lg:py-24">
-          <div className="text-center lg:text-left">
-            <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-rose-500">
-              Rupshi Cosmetics
-            </p>
-            <h1 className="font-serif text-4xl font-bold leading-tight text-slate-900 sm:text-5xl lg:text-6xl">
-              Reveal Your Skin's
-              <span className="block text-rose-600">Natural Radiance</span>
-            </h1>
-            <p className="mx-auto mt-5 max-w-md text-base leading-relaxed text-slate-600 lg:mx-0">
-              Premium skincare, makeup & haircare crafted for the modern
-              beauty lover. Clean, effective, and cruelty-free.
-            </p>
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
-              <Link
-                href="/shop"
-                className="inline-flex items-center justify-center rounded-full bg-rose-600 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-rose-200 transition-all hover:scale-105 hover:bg-rose-700"
-              >
-                Shop Collection
-              </Link>
-              <Link
-                href="/shop?hotOffer=true"
-                className="inline-flex items-center justify-center rounded-full border-2 border-rose-200 bg-white px-8 py-3.5 text-sm font-semibold text-rose-600 transition-all hover:border-rose-400 hover:bg-rose-50"
-              >
-                View Offers
-              </Link>
+      {settings.heroSection?.isVisible !== false && (
+        <section className="relative overflow-hidden bg-gradient-to-br from-rose-50 via-amber-50/40 to-rose-50">
+          <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:gap-16 lg:py-24">
+            <div className="text-center lg:text-left">
+              <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-rose-500">
+                Rupshi Cosmetics
+              </p>
+              <h1 className="font-serif text-4xl font-bold leading-tight text-slate-900 sm:text-5xl lg:text-6xl">
+                Reveal Your Skin's
+                <span className="block text-rose-600">Natural Radiance</span>
+              </h1>
+              <p className="mx-auto mt-5 max-w-md text-base leading-relaxed text-slate-600 lg:mx-0">
+                Premium skincare, makeup & haircare crafted for the modern
+                beauty lover. Clean, effective, and cruelty-free.
+              </p>
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
+                <Link
+                  href="/shop"
+                  className="inline-flex items-center justify-center rounded-full bg-rose-600 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-rose-200 transition-all hover:scale-105 hover:bg-rose-700"
+                >
+                  Shop Collection
+                </Link>
+                <Link
+                  href="/shop?hotOffer=true"
+                  className="inline-flex items-center justify-center rounded-full border-2 border-rose-200 bg-white px-8 py-3.5 text-sm font-semibold text-rose-600 transition-all hover:border-rose-400 hover:bg-rose-50"
+                >
+                  View Offers
+                </Link>
+              </div>
             </div>
-          </div>
 
-          <div className="relative mx-auto flex justify-center">
-            <div className="relative h-72 w-72 overflow-hidden rounded-full border-8 border-white shadow-2xl shadow-rose-200/60 sm:h-80 sm:w-80 lg:h-96 lg:w-96">
-              <Image
-                src="https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=600&h=600&fit=crop"
-                alt="Luxury skincare products"
-                width={400}
-                height={400}
-                priority
-                className="h-full w-full object-cover"
-              />
+            <div className="relative mx-auto flex justify-center">
+              <div className="relative h-72 w-72 overflow-hidden rounded-full border-8 border-white shadow-2xl shadow-rose-200/60 sm:h-80 sm:w-80 lg:h-96 lg:w-96">
+                <Image
+                  src="https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=600&h=600&fit=crop"
+                  alt="Luxury skincare products"
+                  width={400}
+                  height={400}
+                  priority
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="pointer-events-none absolute -inset-4 rounded-full border border-rose-200/50" />
+              <div className="pointer-events-none absolute -inset-8 rounded-full border border-rose-100/40" />
             </div>
-            <div className="pointer-events-none absolute -inset-4 rounded-full border border-rose-200/50" />
-            <div className="pointer-events-none absolute -inset-8 rounded-full border border-rose-100/40" />
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ── C. TRUST BAR ── */}
       <section className="relative z-10 -mt-8 px-4 sm:px-6">
@@ -354,206 +396,221 @@ export default async function Home() {
       </section>
 
       {/* ── D. EXPLORE CATEGORIES ── */}
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:py-20">
-        <h2 className="mb-10 text-center font-serif text-3xl font-bold text-slate-900 sm:text-4xl">
-          Explore Categories
-        </h2>
-        {categories.length === 0 ? (
-          <EmptyState message="No categories available yet. Add some from the Admin panel." />
-        ) : (
-          <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-4">
-            {categories.map((cat) => (
-              <Link
-                key={cat.slug}
-                href={`/shop?category=${encodeURIComponent(cat.slug)}`}
-                className="group flex flex-col items-center rounded-3xl border border-rose-100 bg-white p-8 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-rose-200 hover:shadow-lg hover:shadow-rose-100/50"
-              >
-                <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-rose-50 to-amber-50 text-4xl transition-transform duration-300 group-hover:scale-110">
-                  {cat.icon}
-                </div>
-                <h3 className="text-base font-bold text-slate-800 group-hover:text-rose-600">
-                  {cat.name}
-                </h3>
-                {cat.count !== "" && (
-                  <p className="mt-1 text-xs text-slate-500">
-                    {cat.count} sub-categories
-                  </p>
-                )}
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
+      {settings.categoriesSection?.isVisible !== false && (
+        <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:py-20">
+          <h2 className="mb-10 text-center font-serif text-3xl font-bold text-slate-900 sm:text-4xl">
+            Explore Categories
+          </h2>
+          {categories.length === 0 ? (
+            <EmptyState message="No categories available yet. Add some from the Admin panel." />
+          ) : (
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-4">
+              {categories.map((cat) => (
+                <Link
+                  key={cat.slug}
+                  href={`/shop?category=${encodeURIComponent(cat.slug)}`}
+                  className="group flex flex-col items-center rounded-3xl border border-rose-100 bg-white p-8 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-rose-200 hover:shadow-lg hover:shadow-rose-100/50"
+                >
+                  <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-rose-50 to-amber-50 text-4xl transition-transform duration-300 group-hover:scale-110">
+                    {cat.icon}
+                  </div>
+                  <h3 className="text-base font-bold text-slate-800 group-hover:text-rose-600">
+                    {cat.name}
+                  </h3>
+                  {cat.count !== "" && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      {cat.count} sub-categories
+                    </p>
+                  )}
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* ── E. BEST SELLERS ── */}
-      <section className="bg-white py-16 lg:py-20">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="mb-10 flex items-end justify-between">
-            <h2 className="font-serif text-3xl font-bold text-slate-900 sm:text-4xl">
-              Best Sellers
-            </h2>
-            <Link
-              href="/shop"
-              className="hidden text-sm font-semibold text-rose-600 hover:underline sm:block"
-            >
-              View all →
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
-            {bestSellers.length === 0 ? (
-              <EmptyState message="No featured products yet. Mark products as Featured in Admin." />
-            ) : (
-              bestSellers.map((p) => <ProductCard key={p.id} product={p} />)
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* ── F. HOT OFFERS ── */}
-      <section className="bg-gradient-to-br from-amber-50 via-rose-50 to-amber-50 py-16 lg:py-20">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="mb-10 flex items-end justify-between">
-            <h2 className="font-serif text-3xl font-bold text-slate-900 sm:text-4xl">
-              🔥 Hot Offers
-            </h2>
-            <Link
-              href="/shop?hotOffer=true"
-              className="hidden text-sm font-semibold text-rose-600 hover:underline sm:block"
-            >
-              View all →
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {hotOffers.length === 0 ? (
-              <EmptyState message="No hot offers yet. Toggle Hot Offer on products in Admin." />
-            ) : (
-              hotOffers.map((p) => <ProductCard key={p.id} product={p} />)
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* ── G. PROMO BANNER ── */}
-      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-rose-900 via-rose-800 to-amber-900">
-          <div className="grid items-center gap-8 p-8 sm:p-12 lg:grid-cols-2">
-            <div className="text-center lg:text-left">
-              <h2 className="font-serif text-3xl font-bold text-white sm:text-4xl lg:text-5xl">
-                Get Up to 35% OFF
+      {settings.bestSellersSection?.isVisible !== false && (
+        <section className="bg-white py-16 lg:py-20">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6">
+            <div className="mb-10 flex items-end justify-between">
+              <h2 className="font-serif text-3xl font-bold text-slate-900 sm:text-4xl">
+                Best Sellers
               </h2>
-              <p className="mt-4 max-w-md text-base text-rose-100">
-                Limited-time luxury deals on premium skincare & makeup. Glow
-                starts now.
-              </p>
               <Link
-                href="/shop?hotOffer=true"
-                className="mt-8 inline-flex items-center justify-center rounded-full bg-white px-8 py-3.5 text-sm font-semibold text-rose-700 shadow-lg transition-all hover:scale-105 hover:bg-rose-50"
+                href="/shop"
+                className="hidden text-sm font-semibold text-rose-600 hover:underline sm:block"
               >
-                Claim Deal Now
+                View all →
               </Link>
             </div>
-            <div className="relative mx-auto hidden h-56 w-full max-w-sm overflow-hidden rounded-2xl lg:block">
-              <Image
-                src="https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&h=600&fit=crop"
-                alt="Promo"
-                width={400}
-                height={300}
-                className="h-full w-full object-cover"
-              />
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
+              {bestSellers.length === 0 ? (
+                <EmptyState message="No featured products yet. Mark products as Featured in Admin." />
+              ) : (
+                bestSellers.map((p) => <ProductCard key={p.id} product={p} />)
+              )}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
+
+      {/* ── F. HOT OFFERS ── */}
+      {settings.hotOffersSection?.isVisible !== false && (
+        <section className="bg-gradient-to-br from-amber-50 via-rose-50 to-amber-50 py-16 lg:py-20">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6">
+            <div className="mb-10 flex items-end justify-between">
+              <h2 className="font-serif text-3xl font-bold text-slate-900 sm:text-4xl">
+                🔥 Hot Offers
+              </h2>
+              <Link
+                href="/shop?hotOffer=true"
+                className="hidden text-sm font-semibold text-rose-600 hover:underline sm:block"
+              >
+                View all →
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {hotOffers.length === 0 ? (
+                <EmptyState message="No hot offers yet. Toggle Hot Offer on products in Admin." />
+              ) : (
+                hotOffers.map((p) => <ProductCard key={p.id} product={p} />)
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── G. PROMO BANNER ── */}
+      {promo.isActive && (
+        <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-rose-900 via-rose-800 to-amber-900">
+            <div className="grid items-center gap-8 p-8 sm:p-12 lg:grid-cols-2">
+              <div className="text-center lg:text-left">
+                <h2 className="font-serif text-3xl font-bold text-white sm:text-4xl lg:text-5xl">
+                  {promo.title}
+                </h2>
+                <p className="mt-4 max-w-md text-base text-rose-100">
+                  {promo.subtitle}
+                </p>
+                <Link
+                  href={promo.buttonLink || "/shop"}
+                  className="mt-8 inline-flex items-center justify-center rounded-full bg-white px-8 py-3.5 text-sm font-semibold text-rose-700 shadow-lg transition-all hover:scale-105 hover:bg-rose-50"
+                >
+                  {promo.buttonText}
+                </Link>
+              </div>
+              {promo.imageUrl && (
+                <div className="relative mx-auto hidden h-56 w-full max-w-sm overflow-hidden rounded-2xl lg:block">
+                  <Image
+                    src={promo.imageUrl}
+                    alt="Promo"
+                    width={400}
+                    height={300}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── H. NEW ARRIVALS ── */}
-      <section className="bg-white py-16 lg:py-20">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="mb-10 flex items-end justify-between">
-            <h2 className="font-serif text-3xl font-bold text-slate-900 sm:text-4xl">
-              New Arrivals
-            </h2>
-            <Link
-              href="/shop"
-              className="hidden text-sm font-semibold text-rose-600 hover:underline sm:block"
-            >
-              View all →
-            </Link>
+      {settings.newArrivalsSection?.isVisible !== false && (
+        <section className="bg-white py-16 lg:py-20">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6">
+            <div className="mb-10 flex items-end justify-between">
+              <h2 className="font-serif text-3xl font-bold text-slate-900 sm:text-4xl">
+                New Arrivals
+              </h2>
+              <Link
+                href="/shop"
+                className="hidden text-sm font-semibold text-rose-600 hover:underline sm:block"
+              >
+                View all →
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
+              {newArrivals.length === 0 ? (
+                <EmptyState message="No products yet. Add products from the Admin panel." />
+              ) : (
+                newArrivals.map((p) => <ProductCard key={p.id} product={p} />)
+              )}
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
-            {newArrivals.length === 0 ? (
-              <EmptyState message="No products yet. Add products from the Admin panel." />
-            ) : (
-              newArrivals.map((p) => <ProductCard key={p.id} product={p} />)
-            )}
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ── I. WHY CHOOSE US ── */}
-      <section className="bg-[#fdf8f9] py-16 lg:py-20">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <h2 className="mb-12 text-center font-serif text-3xl font-bold text-slate-900 sm:text-4xl">
-            Why Choose Us?
-          </h2>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {whyChooseUs.map((item) => (
-              <div
-                key={item.title}
-                className="rounded-3xl border border-rose-100 bg-white p-8 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-rose-100/40"
-              >
-                <div className="mb-4 text-4xl">{item.icon}</div>
-                <h3 className="mb-2 text-lg font-bold text-slate-800">
-                  {item.title}
-                </h3>
-                <p className="text-sm leading-relaxed text-slate-500">
-                  {item.desc}
-                </p>
-              </div>
-            ))}
+      {settings.whyChooseUsSection?.isVisible !== false && (
+        <section className="bg-[#fdf8f9] py-16 lg:py-20">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6">
+            <h2 className="mb-12 text-center font-serif text-3xl font-bold text-slate-900 sm:text-4xl">
+              Why Choose Us?
+            </h2>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {whyChooseUs.map((item) => (
+                <div
+                  key={item.title}
+                  className="rounded-3xl border border-rose-100 bg-white p-8 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-rose-100/40"
+                >
+                  <div className="mb-4 text-4xl">{item.icon}</div>
+                  <h3 className="mb-2 text-lg font-bold text-slate-800">
+                    {item.title}
+                  </h3>
+                  <p className="text-sm leading-relaxed text-slate-500">
+                    {item.desc}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ── J. REVIEWS ── */}
-      <section id="reviews" className="bg-white py-16 lg:py-20">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <h2 className="mb-12 text-center font-serif text-3xl font-bold text-slate-900 sm:text-4xl">
-            Loved by Thousands
-          </h2>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            {reviews.map((r) => (
-              <div
-                key={r.name}
-                className="rounded-3xl border border-rose-100 bg-[#fdf8f9] p-8 shadow-sm"
-              >
-                <div className="mb-4 flex gap-0.5 text-amber-400">
-                  {[...Array(r.stars)].map((_, i) => (
-                    <span key={i}>★</span>
-                  ))}
-                </div>
-                <p className="mb-6 text-sm leading-relaxed text-slate-600">
-                  &ldquo;{r.text}&rdquo;
-                </p>
-                <div className="flex items-center gap-3">
-                  <Image
-                    src={r.avatar}
-                    alt={r.name}
-                    width={44}
-                    height={44}
-                    className="h-11 w-11 rounded-full object-cover ring-2 ring-rose-100"
-                  />
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">
-                      {r.name}
-                    </p>
-                    <p className="text-xs text-slate-500">{r.location}</p>
+      {settings.reviewsSection?.isVisible !== false && (
+        <section id="reviews" className="bg-white py-16 lg:py-20">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6">
+            <h2 className="mb-12 text-center font-serif text-3xl font-bold text-slate-900 sm:text-4xl">
+              Loved by Thousands
+            </h2>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+              {reviews.map((r) => (
+                <div
+                  key={r.name}
+                  className="rounded-3xl border border-rose-100 bg-[#fdf8f9] p-8 shadow-sm"
+                >
+                  <div className="mb-4 flex gap-0.5 text-amber-400">
+                    {[...Array(r.stars)].map((_, i) => (
+                      <span key={i}>★</span>
+                    ))}
+                  </div>
+                  <p className="mb-6 text-sm leading-relaxed text-slate-600">
+                    &ldquo;{r.text}&rdquo;
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <Image
+                      src={r.avatar}
+                      alt={r.name}
+                      width={44}
+                      height={44}
+                      className="h-11 w-11 rounded-full object-cover ring-2 ring-rose-100"
+                    />
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">
+                        {r.name}
+                      </p>
+                      <p className="text-xs text-slate-500">{r.location}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Bottom CTA */}
       <section className="bg-gradient-to-r from-rose-600 to-pink-600 py-14 text-center">
