@@ -2,18 +2,18 @@
 
 import { useEffect, useState, useCallback } from "react";
 import ImageUploadField from "@/components/ImageUploadField";
+import { Megaphone, Eye, Hash, Gift, Save } from "lucide-react";
 
-/** Small pink toggle switch */
 function ToggleSwitch({ checked, onChange, label, description }) {
   return (
-    <label className="flex items-start gap-3 cursor-pointer select-none">
+    <label className="flex cursor-pointer select-none items-start gap-3">
       <button
         type="button"
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-          checked ? "bg-[#db2777]" : "bg-gray-300"
+          checked ? "bg-pink-600" : "bg-gray-300"
         }`}
       >
         <span
@@ -25,7 +25,7 @@ function ToggleSwitch({ checked, onChange, label, description }) {
       <div>
         <span className="text-sm font-medium text-gray-800">{label}</span>
         {description && (
-          <p className="text-xs text-gray-500 mt-0.5">{description}</p>
+          <p className="mt-0.5 text-xs text-gray-500">{description}</p>
         )}
       </div>
     </label>
@@ -34,7 +34,7 @@ function ToggleSwitch({ checked, onChange, label, description }) {
 
 const DEFAULTS = {
   noticeBar: {
-    text: "✨ Free Express Delivery on orders over ৳1,999! Code: GLOW2026 ✨",
+    text: "Free Express Delivery on orders over ৳1,999! Code: GLOW2026",
     isActive: true,
     bgColor: "#e11d48",
   },
@@ -100,7 +100,7 @@ export default function HomepageSettings() {
       const data = await res.json().catch(() => null);
 
       if (res.ok && data?.success) {
-        setMessage({ type: "success", text: "✅ Settings saved successfully!" });
+        setMessage({ type: "success", text: "Settings saved successfully" });
         if (data.settings) setSettings({ ...DEFAULTS, ...data.settings });
       } else if (res.status === 503) {
         setMessage({
@@ -123,7 +123,7 @@ export default function HomepageSettings() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#db2777] border-t-transparent" />
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-pink-200 border-t-pink-600" />
       </div>
     );
   }
@@ -131,7 +131,7 @@ export default function HomepageSettings() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-xl font-bold text-gray-900">🏠 Homepage Settings</h2>
+        <h2 className="text-xl font-bold text-gray-900">Homepage Settings</h2>
         <p className="mt-1 text-sm text-gray-500">
           Control which sections appear on the homepage and edit their content.
         </p>
@@ -149,10 +149,10 @@ export default function HomepageSettings() {
         </div>
       )}
 
-      {/* ── Notice Bar ── */}
       <section className="rounded-xl border border-pink-100 bg-pink-50/50 p-5">
-        <h3 className="mb-4 text-base font-bold text-gray-800">
-          📢 Top Notice Bar
+        <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-gray-800">
+          <Megaphone size={18} className="text-pink-600" />
+          Top Notice Bar
         </h3>
         <div className="space-y-4">
           <ToggleSwitch
@@ -169,7 +169,7 @@ export default function HomepageSettings() {
               type="text"
               value={settings.noticeBar?.text || ""}
               onChange={(e) => update("noticeBar", "text", e.target.value)}
-              className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#db2777]"
+              className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
             />
           </div>
           <div>
@@ -191,17 +191,17 @@ export default function HomepageSettings() {
         </div>
       </section>
 
-      {/* ── Section Visibility Toggles ── */}
       <section className="rounded-xl border border-pink-100 bg-white p-5">
-        <h3 className="mb-4 text-base font-bold text-gray-800">
-          👁️ Section Visibility
+        <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-gray-800">
+          <Eye size={18} className="text-pink-600" />
+          Section Visibility
         </h3>
         <div className="grid gap-5 sm:grid-cols-2">
           <ToggleSwitch
             checked={settings.heroSection?.isVisible ?? true}
             onChange={(v) => update("heroSection", "isVisible", v)}
             label="Hero Section"
-            description="Main banner with headline & CTA"
+            description="Main banner with headline and CTA"
           />
           <ToggleSwitch
             checked={settings.categoriesSection?.isVisible ?? true}
@@ -242,10 +242,10 @@ export default function HomepageSettings() {
         </div>
       </section>
 
-      {/* ── Max Items ── */}
       <section className="rounded-xl border border-pink-100 bg-white p-5">
-        <h3 className="mb-4 text-base font-bold text-gray-800">
-          🔢 Max Items per Section
+        <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-gray-800">
+          <Hash size={18} className="text-pink-600" />
+          Max Items per Section
         </h3>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
@@ -264,19 +264,25 @@ export default function HomepageSettings() {
                 max={12}
                 value={settings[key]?.maxItems ?? 4}
                 onChange={(e) =>
-                  update(key, "maxItems", Math.min(12, Math.max(1, Number(e.target.value) || 1)))
+                  update(
+                    key,
+                    "maxItems",
+                    Math.min(12, Math.max(1, Number(e.target.value) || 1))
+                  )
                 }
-                className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#db2777]"
+                className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
               />
             </div>
           ))}
         </div>
       </section>
 
-      {/* ── Promo Banner ── */}
       <section className="rounded-xl border border-pink-100 bg-white p-5">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-base font-bold text-gray-800">🎁 Promo Banner</h3>
+          <h3 className="flex items-center gap-2 text-base font-bold text-gray-800">
+            <Gift size={18} className="text-pink-600" />
+            Promo Banner
+          </h3>
           <ToggleSwitch
             checked={settings.promoBanner?.isActive ?? true}
             onChange={(v) => update("promoBanner", "isActive", v)}
@@ -285,54 +291,40 @@ export default function HomepageSettings() {
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Title
-            </label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Title</label>
             <input
               type="text"
               value={settings.promoBanner?.title || ""}
               onChange={(e) => update("promoBanner", "title", e.target.value)}
-              className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#db2777]"
+              className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Button Text
-            </label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Button Text</label>
             <input
               type="text"
               value={settings.promoBanner?.buttonText || ""}
-              onChange={(e) =>
-                update("promoBanner", "buttonText", e.target.value)
-              }
-              className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#db2777]"
+              onChange={(e) => update("promoBanner", "buttonText", e.target.value)}
+              className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
             />
           </div>
           <div className="sm:col-span-2">
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Subtitle
-            </label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Subtitle</label>
             <textarea
               rows={2}
               value={settings.promoBanner?.subtitle || ""}
-              onChange={(e) =>
-                update("promoBanner", "subtitle", e.target.value)
-              }
-              className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#db2777]"
+              onChange={(e) => update("promoBanner", "subtitle", e.target.value)}
+              className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Button Link
-            </label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Button Link</label>
             <input
               type="text"
               value={settings.promoBanner?.buttonLink || ""}
-              onChange={(e) =>
-                update("promoBanner", "buttonLink", e.target.value)
-              }
+              onChange={(e) => update("promoBanner", "buttonLink", e.target.value)}
               placeholder="/shop?hotOffer=true"
-              className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#db2777]"
+              className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
             />
           </div>
           <div className="sm:col-span-2">
@@ -344,18 +336,19 @@ export default function HomepageSettings() {
         </div>
       </section>
 
-      {/* Save */}
       <div className="flex justify-end">
         <button
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="inline-flex items-center gap-2 rounded-xl bg-[#db2777] px-8 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#9d174d] disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-xl bg-pink-600 px-8 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-pink-700 disabled:opacity-50"
         >
-          {saving && (
+          {saving ? (
             <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+          ) : (
+            <Save size={16} />
           )}
-          {saving ? "Saving..." : "💾 Save Settings"}
+          {saving ? "Saving..." : "Save Settings"}
         </button>
       </div>
     </div>
