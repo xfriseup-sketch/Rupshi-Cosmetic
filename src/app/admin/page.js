@@ -8,13 +8,13 @@ import {
   Package,
   ShoppingBag,
   LayoutDashboard,
-  Ticket,
   Cog,
 } from "lucide-react";
 import ProductManager from "@/components/Admin/ProductManager";
 import OrderManager from "@/components/Admin/OrderManager";
 import CategoryManager from "@/components/Admin/CategoryManager";
 import HomepageSettings from "@/components/Admin/HomepageSettings";
+import CouponManager from "@/components/Admin/CouponManager";
 
 const ADMIN_PASSWORD = "rupshi2024";
 const AUTH_KEY = "rupshi-admin-auth";
@@ -92,7 +92,7 @@ function AdminPageInner() {
       {tab === "orders" && <OrderManager />}
       {tab === "categories" && <CategoryManager />}
       {tab === "homepage" && <HomepageSettings />}
-      {tab === "coupons" && <ComingSoon title="Coupons" icon={Ticket} />}
+      {tab === "coupons" && <CouponManager />}
       {tab === "settings" && <ComingSoon title="Store Settings" icon={Cog} />}
     </div>
   );
