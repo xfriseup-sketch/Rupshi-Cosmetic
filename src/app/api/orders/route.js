@@ -20,6 +20,7 @@ function serializeOrder(order) {
     ...order,
     _id: order._id.toString(),
     createdAt: order.createdAt ? order.createdAt.toISOString() : null,
+    updatedAt: order.updatedAt ? new Date(order.updatedAt).toISOString() : null,
   };
 }
 
@@ -103,7 +104,6 @@ export async function POST(request) {
 
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-    // Server-side coupon re-validation (never trust client discount)
     let discountAmount = 0;
     let appliedCouponCode = null;
 
@@ -132,7 +132,6 @@ export async function POST(request) {
       discountAmount,
     });
 
-    // Increment coupon usage after successful order
     if (appliedCouponCode) {
       await Coupon.updateOne(
         { code: appliedCouponCode },
@@ -218,7 +217,7 @@ export async function PUT(request) {
 
     const order = await Order.findByIdAndUpdate(
       id,
-      { status },
+      { status, updatedAt: new Date() },
       { new: true, runValidators: true }
     ).lean();
 
