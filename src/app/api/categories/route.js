@@ -4,7 +4,6 @@ import dbConnect from "@/lib/mongodb";
 import { dbNotConfiguredResponse } from "@/lib/dbStatus";
 import Category, { generateSlug } from "@/models/Category";
 
-// Categories come from MongoDB and can change via the admin panel
 export const dynamic = "force-dynamic";
 
 function serialize(category) {
@@ -15,11 +14,6 @@ function serialize(category) {
   };
 }
 
-/**
- * Build a nested tree from a flat category list:
- * [{ ...main, children: [{ ...sub }, ...] }, ...]
- * Orphaned children (parent deleted) are surfaced as top-level items.
- */
 function nestCategories(flat) {
   const byId = new Map(flat.map((c) => [c._id, { ...c, children: [] }]));
   const roots = [];
@@ -34,14 +28,6 @@ function nestCategories(flat) {
   return roots;
 }
 
-/**
- * GET /api/categories
- * Fetches all categories (sorted by creation date).
- *   ?homeVisible=true → only MAIN categories flagged isHomeVisible, returned
- *                        in nested form: [{ name: "Skincare", children: [...] }]
- * Without the flag, returns the full nested tree as well (flat fields kept on
- * each node so admin tables can still render them).
- */
 export async function GET(request) {
   try {
     const conn = await dbConnect();
@@ -51,7 +37,6 @@ export async function GET(request) {
 
     let categories;
     if (wantHomeOnly) {
-      // Home-visible main categories + their children
       const mains = await Category.find({ isHomeVisible: true, parentCategory: null })
         .sort({ createdAt: 1 })
         .lean();
@@ -77,40 +62,32 @@ export async function GET(request) {
   } catch (error) {
     console.error("Error fetching categories:", error);
     return NextResponse.json(
-      { success: false, message: "ক্যাটেগরি লোড করা যায়নি", error: error.message },
+      { success: false, message: "Could not load categories", error: error.message },
       { status: 500 }
     );
   }
 }
 
-/**
- * Validate optional Phase 6 category fields (parentCategory / isHomeVisible).
- * Returns { values } or { errors }.
- */
 async function parseCategoryExtras(body) {
   const errors = {};
   const values = {};
 
-  // isHomeVisible — checkbox may arrive as boolean or string
   values.isHomeVisible =
     body?.isHomeVisible === true || body?.isHomeVisible === "true";
 
-  // parentCategory — "" / null means "main category"
   const parent = body?.parentCategory;
   if (!parent || parent === "null" || parent === "") {
     values.parentCategory = null;
   } else if (!mongoose.Types.ObjectId.isValid(parent)) {
-    errors.parentCategory = "অবৈধ প্যারেন্ট ক্যাটাগরি";
+    errors.parentCategory = "Invalid parent category";
   } else {
     const parentDoc = await Category.findById(parent).lean();
     if (!parentDoc) {
-      errors.parentCategory = "প্যারেন্ট ক্যাটাগরি পাওয়া যায়নি";
+      errors.parentCategory = "Parent category not found";
     } else if (parentDoc.parentCategory) {
-      // Keep it simple: only two levels (main → sub)
-      errors.parentCategory = "সাব-ক্যাটাগরির নিচে আর সাব-ক্যাটাগরি রাখা যাবে না";
+      errors.parentCategory = "Cannot nest under a sub-category";
     } else {
       values.parentCategory = parentDoc._id;
-      // Sub-categories are never shown directly on the homepage grid
       values.isHomeVisible = false;
     }
   }
@@ -118,29 +95,24 @@ async function parseCategoryExtras(body) {
   return Object.keys(errors).length > 0 ? { errors } : { values };
 }
 
-/**
- * POST /api/categories
- * Creates a new category (used by the admin panel).
- * Body: { name, slug?, icon?, parentCategory?, isHomeVisible? }
- */
 export async function POST(request) {
   try {
     const body = await request.json().catch(() => null);
 
     const name = (body?.name || "").trim();
-    const icon = (body?.icon || "").trim() || "🛍️";
+    const icon = (body?.icon || "").trim() || "folder";
     let slug = (body?.slug || "").trim().toLowerCase();
 
     const errors = {};
-    if (!name) errors.name = "ক্যাটেগরির নাম আবশ্যক";
+    if (!name) errors.name = "Category name is required";
     if (!slug) slug = generateSlug(name);
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
-      errors.slug = "Slug-এ শুধু ছোট হাতের অক্ষর, সংখ্যা ও ড্যাশ ব্যবহার করুন";
+      errors.slug = "Slug may only contain lowercase letters, numbers, and dashes";
     }
 
     if (Object.keys(errors).length > 0) {
       return NextResponse.json(
-        { success: false, message: "ক্যাটেগরি তথ্যে সমস্যা আছে", errors },
+        { success: false, message: "Validation failed", errors },
         { status: 400 }
       );
     }
@@ -151,12 +123,11 @@ export async function POST(request) {
     const extras = await parseCategoryExtras(body);
     if (extras.errors) {
       return NextResponse.json(
-        { success: false, message: "ক্যাটেগরি তথ্যে সমস্যা আছে", errors: extras.errors },
+        { success: false, message: "Validation failed", errors: extras.errors },
         { status: 400 }
       );
     }
 
-    // Friendly duplicate check before hitting the unique index
     const existing = await Category.findOne({ $or: [{ name }, { slug }] }).lean();
     if (existing) {
       return NextResponse.json(
@@ -164,8 +135,8 @@ export async function POST(request) {
           success: false,
           message:
             existing.name === name
-              ? "এই নামে ক্যাটেগরি আগে থেকেই আছে"
-              : "এই slug দিয়ে ক্যাটেগরি আগে থেকেই আছে",
+              ? "A category with this name already exists"
+              : "A category with this slug already exists",
         },
         { status: 409 }
       );
@@ -176,7 +147,7 @@ export async function POST(request) {
     return NextResponse.json(
       {
         success: true,
-        message: "নতুন ক্যাটেগরি যোগ হয়েছে",
+        message: "Category created",
         category: serialize(category.toObject()),
       },
       { status: 201 }
@@ -190,20 +161,20 @@ export async function POST(request) {
         fieldErrors[field] = err.message;
       }
       return NextResponse.json(
-        { success: false, message: error.message || "ক্যাটেগরি সেভ করা যায়নি", errors: fieldErrors },
+        { success: false, message: error.message || "Could not save category", errors: fieldErrors },
         { status: 400 }
       );
     }
 
     if (error?.code === 11000) {
       return NextResponse.json(
-        { success: false, message: "এই নাম বা slug দিয়ে ক্যাটেগরি আগে থেকেই আছে" },
+        { success: false, message: "A category with this name or slug already exists" },
         { status: 409 }
       );
     }
 
     return NextResponse.json(
-      { success: false, message: error?.message || "ক্যাটেগরি তৈরি করা যায়নি" },
+      { success: false, message: error?.message || "Could not create category" },
       { status: 500 }
     );
   }
