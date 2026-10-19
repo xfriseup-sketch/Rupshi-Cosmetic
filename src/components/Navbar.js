@@ -19,7 +19,6 @@ export default function Navbar({ active = "home" }) {
   return (
     <nav className="sticky top-0 z-50 border-b border-rose-100/60 bg-white/80 backdrop-blur-xl shadow-[0_1px_12px_-4px_rgba(219,39,119,0.08)]">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3.5 sm:px-6">
-        {/* Logo */}
         <Link
           href="/"
           className="group flex items-center gap-2 text-2xl font-bold tracking-tight text-rose-600 transition-transform duration-300 hover:scale-[1.02]"
@@ -35,19 +34,20 @@ export default function Navbar({ active = "home" }) {
           </span>
         </Link>
 
-        {/* Nav links */}
-        <div className="flex items-center gap-5 sm:gap-7">
+        <div className="flex items-center gap-4 sm:gap-7">
           <Link href="/" className={linkClass("home")}>
             হোম
           </Link>
           <Link href="/shop" className={linkClass("shop")}>
             দোকান
           </Link>
-          <Link href="/admin" className={linkClass("admin")}>
+          <Link href="/track-order" className={linkClass("track")}>
+            ট্র্যাক
+          </Link>
+          <Link href="/admin" className={`${linkClass("admin")} hidden sm:inline`}>
             অ্যাডমিন
           </Link>
 
-          {/* Cart */}
           <Link
             href="/cart"
             aria-label="কার্ট"
