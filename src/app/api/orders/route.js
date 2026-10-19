@@ -4,6 +4,7 @@ import dbConnect from "@/lib/mongodb";
 import { dbNotConfiguredResponse } from "@/lib/dbStatus";
 import Order, { ORDER_STATUSES } from "@/models/Order";
 import Product from "@/models/Product";
+import Coupon, { validateCouponRules } from "@/models/Coupon";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,9 @@ export async function POST(request) {
     const phone = (body.phone || "").trim();
     const address = (body.address || "").trim();
     const rawItems = Array.isArray(body.items) ? body.items : [];
+    const couponCode = body.couponCode
+      ? String(body.couponCode).trim().toUpperCase()
+      : null;
 
     const errors = {};
     if (!customerName) errors.customerName = "Name is required";
@@ -98,7 +102,25 @@ export async function POST(request) {
     }
 
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const totalAmount = subtotal + SHIPPING_COST;
+
+    // Server-side coupon re-validation (never trust client discount)
+    let discountAmount = 0;
+    let appliedCouponCode = null;
+
+    if (couponCode) {
+      const coupon = await Coupon.findOne({ code: couponCode }).lean();
+      const result = validateCouponRules(coupon, subtotal);
+      if (!result.ok) {
+        return NextResponse.json(
+          { success: false, message: result.message, errors: { coupon: result.message } },
+          { status: 400 }
+        );
+      }
+      discountAmount = result.discount;
+      appliedCouponCode = result.coupon.code;
+    }
+
+    const totalAmount = Math.max(0, subtotal - discountAmount) + SHIPPING_COST;
 
     const order = await Order.create({
       customerName,
@@ -106,7 +128,17 @@ export async function POST(request) {
       address,
       items,
       totalAmount,
+      couponCode: appliedCouponCode,
+      discountAmount,
     });
+
+    // Increment coupon usage after successful order
+    if (appliedCouponCode) {
+      await Coupon.updateOne(
+        { code: appliedCouponCode },
+        { $inc: { usedCount: 1 } }
+      );
+    }
 
     return NextResponse.json(
       {
@@ -157,11 +189,6 @@ export async function GET() {
   }
 }
 
-/**
- * PUT /api/orders?id=<orderId>
- * Updates order status (admin panel).
- * Body: { status: "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled" }
- */
 export async function PUT(request) {
   try {
     const id = request.nextUrl.searchParams.get("id");
