@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Eye, X, ShoppingBag } from "lucide-react";
+import { Eye, FileDown, Loader2, X, ShoppingBag } from "lucide-react";
 
 function formatBDT(n) {
   return `৳${Number(n || 0).toLocaleString("en-BD")}`;
@@ -46,6 +46,7 @@ export default function OrderManager() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [updatingId, setUpdatingId] = useState(null);
+  const [downloadingId, setDownloadingId] = useState(null);
   const [detail, setDetail] = useState(null);
   const [message, setMessage] = useState(null);
 
@@ -90,6 +91,36 @@ export default function OrderManager() {
     }
   };
 
+  const downloadInvoice = async (orderId) => {
+    setDownloadingId(orderId);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/invoice`);
+      const type = res.headers.get("content-type") || "";
+      if (!res.ok || !type.includes("pdf")) {
+        const data = await res.json().catch(() => null);
+        setMessage({
+          type: "error",
+          text: data?.message || "Could not generate invoice",
+        });
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Rupshi-Invoice-${orderId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setMessage({ type: "error", text: "Could not generate invoice" });
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   const filtered =
     filter === "all" ? orders : orders.filter((o) => o.status === filter);
 
@@ -109,7 +140,6 @@ export default function OrderManager() {
         </h2>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (
           <button
@@ -200,14 +230,29 @@ export default function OrderManager() {
                     </select>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => setDetail(o)}
-                      className="rounded-lg p-2 text-slate-500 hover:bg-pink-50 hover:text-pink-600"
-                      title="View details"
-                    >
-                      <Eye size={16} />
-                    </button>
+                    <div className="inline-flex items-center justify-end gap-1">
+                      <button
+                        type="button"
+                        onClick={() => downloadInvoice(o._id)}
+                        disabled={downloadingId === o._id}
+                        className="rounded-lg p-2 text-slate-500 hover:bg-pink-50 hover:text-pink-600 disabled:opacity-60"
+                        title="Download Invoice"
+                      >
+                        {downloadingId === o._id ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <FileDown size={16} />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDetail(o)}
+                        className="rounded-lg p-2 text-slate-500 hover:bg-pink-50 hover:text-pink-600"
+                        title="View details"
+                      >
+                        <Eye size={16} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -216,7 +261,6 @@ export default function OrderManager() {
         )}
       </div>
 
-      {/* Detail modal */}
       {detail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-xl">
@@ -294,7 +338,20 @@ export default function OrderManager() {
                 </ul>
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => downloadInvoice(detail._id)}
+                  disabled={downloadingId === detail._id}
+                  className="inline-flex items-center gap-2 rounded-xl bg-pink-600 px-5 py-2 text-sm font-medium text-white hover:bg-pink-700 disabled:opacity-60"
+                >
+                  {downloadingId === detail._id ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <FileDown size={16} />
+                  )}
+                  Download Invoice
+                </button>
                 <button
                   type="button"
                   onClick={() => setDetail(null)}
