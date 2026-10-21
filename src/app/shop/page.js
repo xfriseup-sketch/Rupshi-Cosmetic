@@ -86,6 +86,7 @@ function ShopContent() {
   const minPrice = searchParams.get("minPrice") || "";
   const maxPrice = searchParams.get("maxPrice") || "";
   const sort = searchParams.get("sort") || "newest";
+  const search = (searchParams.get("search") || searchParams.get("q") || "").trim();
 
   // ---- mobile filter drawer ----
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -126,9 +127,10 @@ function ShopContent() {
     if (selectedBrands.length) params.set("brand", selectedBrands.join(","));
     if (minPrice) params.set("minPrice", minPrice);
     if (maxPrice) params.set("maxPrice", maxPrice);
+    if (search) params.set("search", search);
     params.set("sort", sort);
     loadProducts(params);
-  }, [selectedCategories, selectedBrands, minPrice, maxPrice, sort, loadProducts]);
+  }, [selectedCategories, selectedBrands, minPrice, maxPrice, sort, search, loadProducts]);
 
   // Load categories (nested tree) + derive brand list once
   useEffect(() => {
@@ -196,7 +198,8 @@ function ShopContent() {
     selectedCategories.length > 0 ||
     selectedBrands.length > 0 ||
     Boolean(minPrice) ||
-    Boolean(maxPrice);
+    Boolean(maxPrice) ||
+    Boolean(search);
 
   const catTree = useMemo(() => nestCategories(categories), [categories]);
   const nameById = useMemo(() => {
@@ -406,7 +409,9 @@ function ShopContent() {
               <h2 className="text-2xl font-bold text-gray-900">
                 {products === null
                   ? "লোড হচ্ছে..."
-                  : `মোট ${count}টি পণ্য`}
+                  : search
+                    ? `${count} টি প্রোডাক্ট পাওয়া গেছে '${search}' এর জন্য`
+                    : `মোট ${count}টি পণ্য`}
               </h2>
               <SortDropdown sort={sort} onChange={(s) => updateFilters({ sort: s })} />
             </div>
@@ -474,7 +479,11 @@ function ShopContent() {
               <>
                 {/* Mobile count */}
                 <div className="mb-4 flex items-center justify-between lg:hidden">
-                  <h2 className="text-lg font-bold text-gray-900">মোট {count}টি পণ্য</h2>
+                  <h2 className="text-lg font-bold text-gray-900">
+                    {search
+                      ? `${count} টি প্রোডাক্ট পাওয়া গেছে '${search}' এর জন্য`
+                      : `মোট ${count}টি পণ্য`}
+                  </h2>
                 </div>
 
                 {/* Grid: 2 mobile / 3 tablet / 4 desktop */}
