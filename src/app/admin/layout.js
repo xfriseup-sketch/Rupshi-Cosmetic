@@ -11,7 +11,6 @@ import {
   SlidersHorizontal,
   Ticket,
   Cog,
-  Sparkles,
   ExternalLink,
   Search,
   Bell,
@@ -41,20 +40,19 @@ const TAB_TITLES = {
 function AdminSidebar({ activeTab }) {
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col bg-slate-900 text-white">
-      {/* Logo */}
-      <div className="flex items-center gap-2.5 border-b border-slate-800 px-5 py-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-pink-600">
-          <Sparkles size={18} className="text-white" />
-        </div>
-        <div>
-          <p className="text-sm font-bold tracking-wide">Rupshi</p>
-          <p className="text-[10px] font-medium uppercase tracking-widest text-slate-400">
-            Admin
-          </p>
-        </div>
+      <div className="border-b border-slate-800 px-5 py-4">
+        <Link
+          href="/"
+          aria-label="রূপসী Cosmetic"
+          className="flex flex-col items-start justify-center leading-none"
+        >
+          <span className="text-sm font-bold tracking-wide text-white">রূপসী</span>
+          <span className="-mt-px text-[10px] font-medium uppercase tracking-widest text-slate-400">
+            Cosmetic
+          </span>
+        </Link>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
@@ -76,8 +74,7 @@ function AdminSidebar({ activeTab }) {
         })}
       </nav>
 
-      {/* Bottom */}
-      <div className="border-t border-slate-800 p-3 space-y-1">
+      <div className="space-y-1 border-t border-slate-800 p-3">
         <Link
           href="/"
           target="_blank"
@@ -97,7 +94,6 @@ function AdminHeader({ title, onLogout }) {
       <h1 className="text-lg font-semibold text-slate-800">{title}</h1>
 
       <div className="flex items-center gap-4">
-        {/* Search */}
         <div className="relative hidden sm:block">
           <Search
             size={16}
@@ -110,7 +106,6 @@ function AdminHeader({ title, onLogout }) {
           />
         </div>
 
-        {/* Notifications */}
         <button
           type="button"
           className="relative rounded-lg p-2 text-slate-500 transition-colors hover:bg-gray-100 hover:text-slate-700"
@@ -120,7 +115,6 @@ function AdminHeader({ title, onLogout }) {
           <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-pink-500" />
         </button>
 
-        {/* User */}
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-pink-100 text-xs font-bold text-pink-700">
             A
@@ -151,11 +145,6 @@ function AdminLayoutInner({ children }) {
   const pathname = usePathname();
   const tab = searchParams.get("tab") || "products";
   const title = TAB_TITLES[tab] || "Admin";
-
-  // Login page: no sidebar chrome
-  // The page itself handles auth gate; when showing login form we still wrap
-  // but sidebar is fine to hide if needed. For simplicity always show shell
-  // after auth is handled inside page.
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">

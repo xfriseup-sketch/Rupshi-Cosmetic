@@ -31,12 +31,15 @@ export default function GlobalFooter() {
           <div className="space-y-4 lg:col-span-2">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 text-2xl font-bold tracking-wide text-white"
+              aria-label="রূপসী Cosmetic"
+              className="inline-flex flex-col items-start justify-center leading-none"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-pink-600 text-xs text-white">
-                R
+              <span className="text-2xl font-bold tracking-wide text-white">
+                রূপসী
               </span>
-              Rupshi <span className="text-rose-400">Cosmetic</span>
+              <span className="-mt-0.5 text-sm font-medium tracking-wider text-rose-400">
+                Cosmetic
+              </span>
             </Link>
             <p className="max-w-sm text-sm leading-relaxed text-slate-400">
               100% authentic and dermatologist-tested skincare and makeup. Glow

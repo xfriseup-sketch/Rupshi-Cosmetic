@@ -18,19 +18,17 @@ export default function Navbar({ active = "home" }) {
 
   return (
     <nav className="sticky top-0 z-50 border-b border-rose-100/60 bg-white/80 backdrop-blur-xl shadow-[0_1px_12px_-4px_rgba(219,39,119,0.08)]">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3.5 sm:px-6">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2.5 sm:px-6">
         <Link
           href="/"
-          className="group flex items-center gap-2 text-2xl font-bold tracking-tight text-rose-600 transition-transform duration-300 hover:scale-[1.02]"
+          aria-label="রূপসী Cosmetic"
+          className="group flex flex-col items-start justify-center leading-none transition-transform duration-300 hover:scale-[1.02]"
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-pink-600 text-sm text-white shadow-md shadow-rose-200">
-            র
-          </span>
-          <span>
+          <span className="text-2xl font-bold tracking-tight text-rose-600">
             রূপসী
-            <span className="ml-1 text-sm font-medium text-rose-400 opacity-80 group-hover:opacity-100">
-              Cosmetic
-            </span>
+          </span>
+          <span className="-mt-0.5 text-sm font-medium tracking-wider text-rose-400 opacity-80 group-hover:opacity-100">
+            Cosmetic
           </span>
         </Link>
 
