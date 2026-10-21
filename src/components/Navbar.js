@@ -2,20 +2,30 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation"; // 1. Import usePathname
 import { Search } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import SearchBar from "@/components/SearchBar";
 
 /**
  * Premium sticky navbar — glassmorphism + soft rose accents
+ * Fixed: Dynamic Active State based on current URL path
  */
-export default function Navbar({ active = "home" }) {
+export default function Navbar() {
+  const pathname = usePathname(); // 2. Get current path
   const { totalItems } = useCart();
   const [mobileSearch, setMobileSearch] = useState(false);
 
-  const linkClass = (key) =>
+  // 3. Helper function to check if a link is active
+  const isActive = (href) => {
+    if (href === "/") return pathname === "/";
+    return pathname.startsWith(href);
+  };
+
+  // 4. Updated linkClass logic using the new isActive helper
+  const linkClass = (href) =>
     `relative px-1 py-1 text-sm font-medium tracking-wide transition-all duration-300 ${
-      active === key
+      isActive(href)
         ? "text-rose-600 after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:rounded-full after:bg-rose-500"
         : "text-slate-600 hover:text-rose-600"
     }`;
@@ -24,6 +34,8 @@ export default function Navbar({ active = "home" }) {
     <nav className="sticky top-0 z-50 border-b border-rose-100/60 bg-white/80 backdrop-blur-xl shadow-[0_1px_12px_-4px_rgba(219,39,119,0.08)]">
       <div className="mx-auto max-w-7xl px-4 py-2.5 sm:px-6">
         <div className="flex items-center justify-between gap-3">
+          
+          {/* Logo Section */}
           <Link
             href="/"
             aria-label="রূপসী Cosmetic"
@@ -37,24 +49,47 @@ export default function Navbar({ active = "home" }) {
             </span>
           </Link>
 
+          {/* Desktop Search Bar */}
           <div className="hidden min-w-0 flex-1 md:block md:max-w-md lg:max-w-lg">
             <SearchBar />
           </div>
 
+          {/* Navigation Links & Actions */}
           <div className="flex items-center gap-3 sm:gap-6">
-            <Link href="/" className={`${linkClass("home")} hidden sm:inline`}>
+            
+            {/* Home Link */}
+            <Link 
+              href="/" 
+              className={`${linkClass("/")} hidden sm:inline`}
+            >
               হোম
             </Link>
-            <Link href="/shop" className={linkClass("shop")}>
+
+            {/* Shop Link */}
+            <Link 
+              href="/shop" 
+              className={linkClass("/shop")}
+            >
               দোকান
             </Link>
-            <Link href="/track-order" className={`${linkClass("track")} hidden lg:inline`}>
+
+            {/* Track Order Link */}
+            <Link 
+              href="/track-order" 
+              className={`${linkClass("/track-order")} hidden lg:inline`}
+            >
               ট্র্যাক
             </Link>
-            <Link href="/admin" className={`${linkClass("admin")} hidden lg:inline`}>
+
+            {/* Admin Link */}
+            <Link 
+              href="/admin" 
+              className={`${linkClass("/admin")} hidden lg:inline`}
+            >
               অ্যাডমিন
             </Link>
 
+            {/* Mobile Search Toggle Button */}
             <button
               type="button"
               className="rounded-full p-2 text-slate-600 hover:bg-rose-50 hover:text-rose-600 md:hidden"
@@ -65,11 +100,12 @@ export default function Navbar({ active = "home" }) {
               <Search size={18} />
             </button>
 
+            {/* Cart Icon */}
             <Link
               href="/cart"
               aria-label="কার্ট"
               className={`relative rounded-full p-2 transition-all duration-300 hover:bg-rose-50 ${
-                active === "cart" ? "text-rose-600" : "text-slate-600 hover:text-rose-600"
+                isActive("/cart") ? "text-rose-600" : "text-slate-600 hover:text-rose-600"
               }`}
             >
               <svg
@@ -96,6 +132,7 @@ export default function Navbar({ active = "home" }) {
           </div>
         </div>
 
+        {/* Mobile Search Input (Collapsible) */}
         {mobileSearch && (
           <div className="mt-2 md:hidden">
             <SearchBar autoFocus />
