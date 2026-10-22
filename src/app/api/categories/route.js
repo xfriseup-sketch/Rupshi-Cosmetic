@@ -6,10 +6,16 @@ import Category, { generateSlug } from "@/models/Category";
 
 export const dynamic = "force-dynamic";
 
+const DEPARTMENTS = ["beauty", "fashion", "tech"];
+
 function serialize(category) {
   return {
     ...category,
     _id: category._id.toString(),
+    department: category.department || "beauty",
+    parentCategory: category.parentCategory
+      ? category.parentCategory.toString()
+      : null,
     createdAt: category.createdAt ? category.createdAt.toISOString() : null,
   };
 }
@@ -28,28 +34,59 @@ function nestCategories(flat) {
   return roots;
 }
 
+/**
+ * GET /api/categories
+ *   ?dept=beauty|fashion|tech  → only categories for that department
+ *   ?homeVisible=true          → homepage main categories (+ their children)
+ */
 export async function GET(request) {
   try {
     const conn = await dbConnect();
     if (!conn) return dbNotConfiguredResponse();
 
-    const wantHomeOnly = request.nextUrl.searchParams.get("homeVisible") === "true";
+    const sp = request.nextUrl.searchParams;
+    const wantHomeOnly = sp.get("homeVisible") === "true";
+    const dept = (sp.get("dept") || "").trim().toLowerCase();
+
+    const deptFilter = {};
+    if (dept) {
+      if (!DEPARTMENTS.includes(dept)) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "dept অবশ্যই beauty, fashion বা tech হতে হবে",
+          },
+          { status: 400 }
+        );
+      }
+      deptFilter.department = dept;
+    }
 
     let categories;
+
     if (wantHomeOnly) {
-      const mains = await Category.find({ isHomeVisible: true, parentCategory: null })
+      const mains = await Category.find({
+        isHomeVisible: true,
+        parentCategory: null,
+        ...deptFilter,
+      })
         .sort({ createdAt: 1 })
         .lean();
+
       const mainIds = mains.map((m) => m._id);
       const children =
         mainIds.length > 0
-          ? await Category.find({ parentCategory: { $in: mainIds } })
+          ? await Category.find({
+              parentCategory: { $in: mainIds },
+              ...deptFilter,
+            })
               .sort({ createdAt: 1 })
               .lean()
           : [];
+
       categories = [...mains, ...children].map(serialize);
     } else {
-      const all = await Category.find({}).sort({ createdAt: 1 }).lean();
+      const all = await Category.find(deptFilter).sort({ createdAt: 1 }).lean();
       categories = all.map(serialize);
     }
 
@@ -62,7 +99,11 @@ export async function GET(request) {
   } catch (error) {
     console.error("Error fetching categories:", error);
     return NextResponse.json(
-      { success: false, message: "Could not load categories", error: error.message },
+      {
+        success: false,
+        message: "Could not load categories",
+        error: error.message,
+      },
       { status: 500 }
     );
   }
@@ -74,6 +115,16 @@ async function parseCategoryExtras(body) {
 
   values.isHomeVisible =
     body?.isHomeVisible === true || body?.isHomeVisible === "true";
+
+  // Department (required for multi-department store)
+  const department = String(body?.department || "beauty")
+    .trim()
+    .toLowerCase();
+  if (!DEPARTMENTS.includes(department)) {
+    errors.department = "department অবশ্যই beauty, fashion বা tech হতে হবে";
+  } else {
+    values.department = department;
+  }
 
   const parent = body?.parentCategory;
   if (!parent || parent === "null" || parent === "") {
@@ -87,14 +138,30 @@ async function parseCategoryExtras(body) {
     } else if (parentDoc.parentCategory) {
       errors.parentCategory = "Cannot nest under a sub-category";
     } else {
-      values.parentCategory = parentDoc._id;
-      values.isHomeVisible = false;
+      // Parent must be in the same department
+      const parentDept = parentDoc.department || "beauty";
+      if (values.department && parentDept !== values.department) {
+        errors.parentCategory =
+          "Parent category must belong to the same department";
+      } else {
+        values.parentCategory = parentDoc._id;
+        // Sub-categories never show on homepage alone
+        values.isHomeVisible = false;
+        // Inherit department from parent if not explicitly set
+        if (!body?.department) {
+          values.department = parentDept;
+        }
+      }
     }
   }
 
   return Object.keys(errors).length > 0 ? { errors } : { values };
 }
 
+/**
+ * POST /api/categories
+ * Body: { name, slug?, icon?, department, parentCategory?, isHomeVisible? }
+ */
 export async function POST(request) {
   try {
     const body = await request.json().catch(() => null);
@@ -107,7 +174,8 @@ export async function POST(request) {
     if (!name) errors.name = "Category name is required";
     if (!slug) slug = generateSlug(name);
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
-      errors.slug = "Slug may only contain lowercase letters, numbers, and dashes";
+      errors.slug =
+        "Slug may only contain lowercase letters, numbers, and dashes";
     }
 
     if (Object.keys(errors).length > 0) {
@@ -123,26 +191,42 @@ export async function POST(request) {
     const extras = await parseCategoryExtras(body);
     if (extras.errors) {
       return NextResponse.json(
-        { success: false, message: "Validation failed", errors: extras.errors },
+        {
+          success: false,
+          message: "Validation failed",
+          errors: extras.errors,
+        },
         { status: 400 }
       );
     }
 
-    const existing = await Category.findOne({ $or: [{ name }, { slug }] }).lean();
+    const department = extras.values.department || "beauty";
+
+    // Unique per department (same name/slug allowed in different depts)
+    const existing = await Category.findOne({
+      department,
+      $or: [{ name }, { slug }],
+    }).lean();
+
     if (existing) {
       return NextResponse.json(
         {
           success: false,
           message:
             existing.name === name
-              ? "A category with this name already exists"
-              : "A category with this slug already exists",
+              ? "এই department-এ এই নামের category আগে থেকেই আছে"
+              : "এই department-এ এই slug আগে থেকেই আছে",
         },
         { status: 409 }
       );
     }
 
-    const category = await Category.create({ name, slug, icon, ...extras.values });
+    const category = await Category.create({
+      name,
+      slug,
+      icon,
+      ...extras.values,
+    });
 
     return NextResponse.json(
       {
@@ -161,20 +245,30 @@ export async function POST(request) {
         fieldErrors[field] = err.message;
       }
       return NextResponse.json(
-        { success: false, message: error.message || "Could not save category", errors: fieldErrors },
+        {
+          success: false,
+          message: error.message || "Could not save category",
+          errors: fieldErrors,
+        },
         { status: 400 }
       );
     }
 
     if (error?.code === 11000) {
       return NextResponse.json(
-        { success: false, message: "A category with this name or slug already exists" },
+        {
+          success: false,
+          message: "এই department-এ এই নাম বা slug আগে থেকেই আছে",
+        },
         { status: 409 }
       );
     }
 
     return NextResponse.json(
-      { success: false, message: error?.message || "Could not create category" },
+      {
+        success: false,
+        message: error?.message || "Could not create category",
+      },
       { status: 500 }
     );
   }
