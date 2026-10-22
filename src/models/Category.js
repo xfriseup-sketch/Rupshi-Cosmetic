@@ -5,13 +5,11 @@ const CategorySchema = new mongoose.Schema(
     name: {
       type: String,
       required: [true, "ক্যাটেগরির নাম আবশ্যক"],
-      unique: true,
       trim: true,
     },
     slug: {
       type: String,
       required: [true, "Slug is required"],
-      unique: true,
       lowercase: true,
       trim: true,
       match: [/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must be lowercase letters, numbers and dashes"],
@@ -21,15 +19,20 @@ const CategorySchema = new mongoose.Schema(
       trim: true,
       default: "🛍️",
     },
-    // Phase 6 — nested categories & homepage visibility
+    // Which shop section this category belongs to
+    department: {
+      type: String,
+      enum: ["beauty", "fashion", "tech"],
+      required: [true, "Department is required"],
+      default: "beauty",
+      index: true,
+    },
     parentCategory: {
-      // null = main category; ObjectId = sub-category of that main category
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
       default: null,
     },
     isHomeVisible: {
-      // Only main categories with this flag show on the homepage
       type: Boolean,
       default: false,
     },
@@ -41,31 +44,39 @@ const CategorySchema = new mongoose.Schema(
   { collection: "categories" }
 );
 
-// Prevent overwriting the model on hot reloads / repeated imports
+// Same name/slug can exist in different departments
+CategorySchema.index({ name: 1, department: 1 }, { unique: true });
+CategorySchema.index({ slug: 1, department: 1 }, { unique: true });
+
 let Category = mongoose.models.Category;
 
 if (!Category) {
   Category = mongoose.model("Category", CategorySchema);
-} else if (!Category.schema.paths.parentCategory || !Category.schema.paths.isHomeVisible) {
-  // An older compiled model (e.g. from a previous hot reload) may lack the new
-  // Phase 6 paths — add them so queries/validations keep working.
+} else {
   const additions = {};
   if (!Category.schema.paths.parentCategory) {
-    additions.parentCategory = { type: mongoose.Schema.Types.ObjectId, ref: "Category", default: null };
+    additions.parentCategory = {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+      default: null,
+    };
   }
   if (!Category.schema.paths.isHomeVisible) {
     additions.isHomeVisible = { type: Boolean, default: false };
   }
-  Category.schema.add(additions);
+  if (!Category.schema.paths.department) {
+    additions.department = {
+      type: String,
+      enum: ["beauty", "fashion", "tech"],
+      default: "beauty",
+      index: true,
+    };
+  }
+  if (Object.keys(additions).length) Category.schema.add(additions);
 }
 
 export default Category;
 
-/**
- * Generate a URL-friendly slug. Bengali characters don't transliterate, so
- * if nothing survives sanitization we fall back to a short random suffix —
- * the human-readable name is always kept separately in `name`.
- */
 export function generateSlug(name) {
   const base = (name || "")
     .toLowerCase()
