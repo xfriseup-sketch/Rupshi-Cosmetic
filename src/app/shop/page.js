@@ -10,18 +10,14 @@ import { useCart } from "@/context/CartContext";
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-/** Format a number as Bangladeshi Taka, e.g. ৳1,200 */
 function formatBDT(amount) {
   return `৳${Number(amount || 0).toLocaleString("en-BD")}`;
 }
 
-// Preset price ranges (shown as radio options in the sidebar)
-const PRICE_PRESETS = [
-  { key: "all", label: "সব রেঞ্জ", min: "", max: "" },
-  { key: "under500", label: "৫০০ টাকার কম", min: "", max: "499" },
-  { key: "500-1000", label: "৫০০ - ১০০০ টাকা", min: "500", max: "1000" },
-  { key: "1000-2000", label: "১০০০ - ২০০০ টাকা", min: "1000", max: "2000" },
-  { key: "over2000", label: "২০০০+ টাকা", min: "2000", max: "" },
+const DEPARTMENTS = [
+  { id: "beauty", label: "Beauty", icon: "💄" },
+  { id: "fashion", label: "Fashion", icon: "👕" },
+  { id: "tech", label: "Tech", icon: "🎮" },
 ];
 
 const SORT_OPTIONS = [
@@ -30,14 +26,36 @@ const SORT_OPTIONS = [
   { key: "price-desc", label: "দাম বেশি → কম" },
 ];
 
-/** Department tabs for multi-department shop */
-const DEPARTMENTS = [
-  { id: "beauty", label: "Beauty", icon: "💄" },
-  { id: "fashion", label: "Fashion", icon: "👕" },
-  { id: "tech", label: "Tech", icon: "🎮" },
-];
+/** Fixed options per department (ultra-simple) */
+const DEPT_CONFIG = {
+  beauty: {
+    categories: ["Skincare", "Makeup", "Haircare"],
+    brands: ["The Ordinary", "CeraVe", "L'Oreal", "Maybelline", "Nivea"],
+    showSize: false,
+    showColor: false,
+    showBrand: true,
+    showCategory: true,
+  },
+  fashion: {
+    categories: [],
+    brands: [],
+    sizes: ["S", "M", "L", "XL", "XXL"],
+    colors: ["Red", "Black", "White", "Blue", "Pink"],
+    showSize: true,
+    showColor: true,
+    showBrand: false,
+    showCategory: false,
+  },
+  tech: {
+    categories: ["Gaming Cooler", "Headphone", "Smart Watch"],
+    brands: ["Sony", "Logitech", "Generic"],
+    showSize: false,
+    showColor: false,
+    showBrand: true,
+    showCategory: true,
+  },
+};
 
-/** Build a nested tree [{ ...cat, children: [...] }] from a flat list */
 function nestCategories(flat) {
   const byId = new Map(flat.map((c) => [c._id, { ...c, children: [] }]));
   const roots = [];
@@ -53,7 +71,6 @@ function nestCategories(flat) {
 /* Page                                                                */
 /* ------------------------------------------------------------------ */
 
-/** Next.js requires useSearchParams() to sit inside a <Suspense> boundary. */
 export default function ShopPage() {
   return (
     <Suspense
@@ -74,14 +91,13 @@ function ShopContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // ---- data ----
-  const [products, setProducts] = useState(null); // null = loading
+  const [products, setProducts] = useState(null);
   const [count, setCount] = useState(0);
   const [dbNotConfigured, setDbNotConfigured] = useState(false);
-  const [categories, setCategories] = useState([]); // flat list
-  const [brands, setBrands] = useState([]); // unique brand names
+  const [categories, setCategories] = useState([]);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // ---- filters (single source of truth: URL query params) ----
+  // ---- URL is source of truth ----
   const selectedDept = searchParams.get("dept") || "beauty";
   const selectedCategories = useMemo(
     () => (searchParams.get("category") ? searchParams.get("category").split(",").filter(Boolean) : []),
@@ -91,57 +107,73 @@ function ShopContent() {
     () => (searchParams.get("brand") ? searchParams.get("brand").split(",").filter(Boolean) : []),
     [searchParams]
   );
+  const selectedSizes = useMemo(
+    () => (searchParams.get("size") ? searchParams.get("size").split(",").filter(Boolean) : []),
+    [searchParams]
+  );
+  const selectedColors = useMemo(
+    () => (searchParams.get("color") ? searchParams.get("color").split(",").filter(Boolean) : []),
+    [searchParams]
+  );
   const minPrice = searchParams.get("minPrice") || "";
   const maxPrice = searchParams.get("maxPrice") || "";
   const sort = searchParams.get("sort") || "newest";
   const search = (searchParams.get("search") || searchParams.get("q") || "").trim();
 
-  // ---- mobile filter drawer ----
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const cfg = DEPT_CONFIG[selectedDept] || DEPT_CONFIG.beauty;
 
-  // Debounced fetch so checkbox spam doesn't hammer the API
   const fetchTimer = useRef(null);
-  const loadProducts = useCallback(
-    (params) => {
-      if (fetchTimer.current) clearTimeout(fetchTimer.current);
-      fetchTimer.current = setTimeout(async () => {
-        try {
-          const res = await fetch(`/api/products?${params.toString()}`);
-          const data = await res.json().catch(() => null);
+  const loadProducts = useCallback((params) => {
+    if (fetchTimer.current) clearTimeout(fetchTimer.current);
+    fetchTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/products?${params.toString()}`);
+        const data = await res.json().catch(() => null);
 
-          if (res.status === 503 || data?.dbConfigured === false) {
-            setDbNotConfigured(true);
-            setProducts([]);
-            return;
-          }
-          if (!res.ok) throw new Error(`Request failed with status ${res.status}`);
-
-          setDbNotConfigured(false);
-          setProducts(data?.products ?? []);
-          setCount(data?.count ?? 0);
-        } catch (error) {
-          console.error("Failed to fetch products:", error);
+        if (res.status === 503 || data?.dbConfigured === false) {
+          setDbNotConfigured(true);
           setProducts([]);
+          return;
         }
-      }, 250);
-    },
-    []
-  );
+        if (!res.ok) throw new Error(`Request failed with status ${res.status}`);
 
-  // Fetch whenever the URL query changes (URL is the state store)
+        setDbNotConfigured(false);
+        setProducts(data?.products ?? []);
+        setCount(data?.count ?? 0);
+      } catch (error) {
+        console.error("Failed to fetch products:", error);
+        setProducts([]);
+      }
+    }, 250);
+  }, []);
+
+  // Fetch when URL changes
   useEffect(() => {
     const params = new URLSearchParams();
     params.set("dept", selectedDept);
     if (selectedCategories.length) params.set("category", selectedCategories.join(","));
     if (selectedBrands.length) params.set("brand", selectedBrands.join(","));
+    if (selectedSizes.length) params.set("size", selectedSizes.join(","));
+    if (selectedColors.length) params.set("color", selectedColors.join(","));
     if (minPrice) params.set("minPrice", minPrice);
     if (maxPrice) params.set("maxPrice", maxPrice);
     if (search) params.set("search", search);
     params.set("sort", sort);
     loadProducts(params);
-  }, [selectedDept, selectedCategories, selectedBrands, minPrice, maxPrice, sort, search, loadProducts]);
+  }, [
+    selectedDept,
+    selectedCategories,
+    selectedBrands,
+    selectedSizes,
+    selectedColors,
+    minPrice,
+    maxPrice,
+    sort,
+    search,
+    loadProducts,
+  ]);
 
-  // Load categories (nested tree) + derive brand list once
+  // Load DB categories once (optional fallback)
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -149,19 +181,6 @@ function ShopContent() {
         const res = await fetch("/api/categories");
         const data = await res.json().catch(() => null);
         if (!cancelled && data?.success) setCategories(data.categories || []);
-      } catch {
-        /* ignore — sidebar just stays empty */
-      }
-    })();
-    (async () => {
-      try {
-        // Derive unique brands from all products (no filters)
-        const res = await fetch("/api/products");
-        const data = await res.json().catch(() => null);
-        if (!cancelled && data?.success) {
-          const uniq = [...new Set((data.products || []).map((p) => p.brand).filter(Boolean))];
-          setBrands(uniq.sort());
-        }
       } catch {
         /* ignore */
       }
@@ -171,20 +190,30 @@ function ShopContent() {
     };
   }, []);
 
-  /** Push updated filters into the URL — this triggers the fetch above. */
+  /** Update URL query — triggers fetch */
   const updateFilters = (next) => {
     const params = new URLSearchParams(searchParams.toString());
 
     const setList = (key, list) => {
-      if (list.length > 0) params.set(key, list.join(","));
+      if (list && list.length > 0) params.set(key, list.join(","));
       else params.delete(key);
     };
 
     if (next.dept !== undefined) {
-      next.dept ? params.set("dept", next.dept) : params.delete("dept");
+      if (next.dept) params.set("dept", next.dept);
+      else params.delete("dept");
+      // Reset department-specific filters when switching tab
+      params.delete("category");
+      params.delete("brand");
+      params.delete("size");
+      params.delete("color");
+      params.delete("minPrice");
+      params.delete("maxPrice");
     }
     if (next.category !== undefined) setList("category", next.category);
     if (next.brand !== undefined) setList("brand", next.brand);
+    if (next.size !== undefined) setList("size", next.size);
+    if (next.color !== undefined) setList("color", next.color);
     if (next.minPrice !== undefined) {
       next.minPrice ? params.set("minPrice", next.minPrice) : params.delete("minPrice");
     }
@@ -200,7 +229,6 @@ function ShopContent() {
   };
 
   const setDepartment = (deptId) => {
-    // Switch department; keep other filters so UX stays smooth
     updateFilters({ dept: deptId });
   };
 
@@ -208,7 +236,6 @@ function ShopContent() {
     list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 
   const clearAll = () => {
-    // Keep current department when clearing other filters
     const params = new URLSearchParams();
     if (selectedDept && selectedDept !== "beauty") params.set("dept", selectedDept);
     const qs = params.toString();
@@ -218,24 +245,33 @@ function ShopContent() {
   const hasActiveFilters =
     selectedCategories.length > 0 ||
     selectedBrands.length > 0 ||
+    selectedSizes.length > 0 ||
+    selectedColors.length > 0 ||
     Boolean(minPrice) ||
     Boolean(maxPrice) ||
     Boolean(search);
 
-  const catTree = useMemo(() => nestCategories(categories), [categories]);
-
-  // Active filter chips
+  // Active chips
   const activeChips = [
-    ...selectedCategories.map((slugOrName) => ({
-      key: `c-${slugOrName}`,
-      label: `ক্যাটাগরি: ${categories.find((c) => c.slug === slugOrName || c.name === slugOrName)?.name || slugOrName}`,
-      onRemove: () =>
-        updateFilters({ category: selectedCategories.filter((v) => v !== slugOrName) }),
+    ...selectedCategories.map((c) => ({
+      key: `c-${c}`,
+      label: `ক্যাটাগরি: ${c}`,
+      onRemove: () => updateFilters({ category: selectedCategories.filter((v) => v !== c) }),
     })),
     ...selectedBrands.map((b) => ({
       key: `b-${b}`,
       label: `ব্র্যান্ড: ${b}`,
       onRemove: () => updateFilters({ brand: selectedBrands.filter((v) => v !== b) }),
+    })),
+    ...selectedSizes.map((s) => ({
+      key: `s-${s}`,
+      label: `সাইজ: ${s}`,
+      onRemove: () => updateFilters({ size: selectedSizes.filter((v) => v !== s) }),
+    })),
+    ...selectedColors.map((c) => ({
+      key: `col-${c}`,
+      label: `কালার: ${c}`,
+      onRemove: () => updateFilters({ color: selectedColors.filter((v) => v !== c) }),
     })),
     ...(minPrice || maxPrice
       ? [
@@ -248,139 +284,167 @@ function ShopContent() {
       : []),
   ];
 
-  const pricePresetKey =
-    PRICE_PRESETS.find((p) => p.min === minPrice && p.max === maxPrice)?.key || "custom";
-
-  /* ------------------------- sidebar content ------------------------ */
+  /* ------------------------- Dynamic Sidebar ------------------------ */
   const sidebar = (
     <div className="space-y-6">
-      {/* Category tree */}
-      <div>
-        <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-700">
-          🏷️ ক্যাটাগরি
-        </h3>
-        {catTree.length === 0 ? (
-          <p className="text-sm text-gray-400">কোনো ক্যাটাগরি নেই</p>
-        ) : (
-          <div className="space-y-1">
-            {catTree.map((main) => (
-              <div key={main._id}>
-                <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-gray-800 hover:bg-pink-50">
-                  <input
-                    type="checkbox"
-                    checked={selectedCategories.includes(main.slug)}
-                    onChange={() =>
-                      updateFilters({
-                        category: toggleInList(selectedCategories, main.slug),
-                      })
-                    }
-                    className="h-4 w-4 accent-[#db2777]"
-                  />
-                  <span>{main.icon} {main.name}</span>
-                </label>
-                {main.children.length > 0 && (
-                  <div className="ml-6 border-l border-pink-100 pl-2">
-                    {main.children.map((sub) => (
-                      <label
-                        key={sub._id}
-                        className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-sm text-gray-600 hover:bg-pink-50"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedCategories.includes(sub.slug)}
-                          onChange={() =>
-                            updateFilters({
-                              category: toggleInList(selectedCategories, sub.slug),
-                            })
-                          }
-                          className="h-4 w-4 accent-[#db2777]"
-                        />
-                        <span>{sub.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Brand filter */}
-      <div>
-        <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-700">
-          ✨ ব্র্যান্ড
-        </h3>
-        {brands.length === 0 ? (
-          <p className="text-sm text-gray-400">কোনো ব্র্যান্ড নেই</p>
-        ) : (
-          <div className="max-h-52 space-y-1 overflow-y-auto pr-1">
-            {brands.map((b) => (
-              <label
-                key={b}
-                className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-gray-700 hover:bg-pink-50"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedBrands.includes(b)}
-                  onChange={() => updateFilters({ brand: toggleInList(selectedBrands, b) })}
-                  className="h-4 w-4 accent-[#db2777]"
-                />
-                <span className="truncate">{b}</span>
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Price range presets */}
+      {/* Price Range — always shown */}
       <div>
         <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-700">
           💰 দামের রেঞ্জ
         </h3>
-        <div className="space-y-1">
-          {PRICE_PRESETS.map((p) => (
-            <label
-              key={p.key}
-              className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-gray-700 hover:bg-pink-50"
-            >
-              <input
-                type="radio"
-                name="priceRange"
-                checked={pricePresetKey === p.key}
-                onChange={() => updateFilters({ minPrice: p.min, maxPrice: p.max })}
-                className="h-4 w-4 accent-[#db2777]"
-              />
-              <span>{p.label}</span>
-            </label>
-          ))}
-        </div>
-
         <CustomPriceForm
           minPrice={minPrice}
           maxPrice={maxPrice}
           onSubmit={(mn, mx) => updateFilters({ minPrice: mn, maxPrice: mx })}
         />
       </div>
+
+      {/* Category — beauty & tech */}
+      {cfg.showCategory && cfg.categories.length > 0 && (
+        <div>
+          <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-700">
+            🏷️ ক্যাটাগরি
+          </h3>
+          <div className="space-y-1">
+            {cfg.categories.map((cat) => {
+              const active = selectedCategories.includes(cat);
+              return (
+                <label
+                  key={cat}
+                  className={`flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition ${
+                    active ? "bg-pink-50 font-semibold text-[#db2777]" : "text-gray-700 hover:bg-pink-50"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={active}
+                    onChange={() =>
+                      updateFilters({ category: toggleInList(selectedCategories, cat) })
+                    }
+                    className="h-4 w-4 accent-[#db2777]"
+                  />
+                  <span>{cat}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Brand — beauty & tech */}
+      {cfg.showBrand && cfg.brands.length > 0 && (
+        <div>
+          <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-700">
+            ✨ ব্র্যান্ড
+          </h3>
+          <div className="space-y-1">
+            {cfg.brands.map((b) => {
+              const active = selectedBrands.includes(b);
+              return (
+                <label
+                  key={b}
+                  className={`flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition ${
+                    active ? "bg-pink-50 font-semibold text-[#db2777]" : "text-gray-700 hover:bg-pink-50"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={active}
+                    onChange={() => updateFilters({ brand: toggleInList(selectedBrands, b) })}
+                    className="h-4 w-4 accent-[#db2777]"
+                  />
+                  <span className="truncate">{b}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Size — fashion only */}
+      {cfg.showSize && cfg.sizes?.length > 0 && (
+        <div>
+          <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-700">
+            📏 সাইজ
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {cfg.sizes.map((s) => {
+              const active = selectedSizes.includes(s);
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => updateFilters({ size: toggleInList(selectedSizes, s) })}
+                  className={`min-w-[2.75rem] rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                    active
+                      ? "border-[#db2777] bg-[#db2777] text-white"
+                      : "border-pink-200 bg-white text-gray-700 hover:border-[#db2777] hover:text-[#db2777]"
+                  }`}
+                >
+                  {s}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Color — fashion only */}
+      {cfg.showColor && cfg.colors?.length > 0 && (
+        <div>
+          <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-700">
+            🎨 কালার
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {cfg.colors.map((c) => {
+              const active = selectedColors.includes(c);
+              const colorMap = {
+                Red: "#ef4444",
+                Black: "#171717",
+                White: "#f5f5f5",
+                Blue: "#3b82f6",
+                Pink: "#ec4899",
+              };
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => updateFilters({ color: toggleInList(selectedColors, c) })}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+                    active
+                      ? "border-[#db2777] bg-pink-50 text-[#db2777]"
+                      : "border-pink-200 bg-white text-gray-700 hover:border-[#db2777]"
+                  }`}
+                >
+                  <span
+                    className="h-3.5 w-3.5 rounded-full border border-gray-200"
+                    style={{ backgroundColor: colorMap[c] || "#ccc" }}
+                  />
+                  {c}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 
   /* ------------------------------ render ---------------------------- */
   return (
     <main className="min-h-screen bg-pink-50">
-      {/* Shop Header */}
+      {/* Shop Header + Department Tabs */}
       <section className="bg-gradient-to-br from-pink-100 via-pink-50 to-white">
         <div className="mx-auto max-w-7xl px-4 py-12 text-center">
-          <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900">
+          <h1 className="text-3xl font-extrabold text-gray-900 md:text-4xl">
             আমাদের <span className="text-[#db2777]">কালেকশন</span>
           </h1>
           <p className="mt-3 text-gray-600">
             স্কিনকেয়ার, ফ্যাশন ও টেক — সব কিছু এক জায়গায়
           </p>
 
-          {/* Department Tab Switcher */}
           <div className="mt-8 flex justify-center">
-            <div className="inline-flex max-w-full overflow-x-auto rounded-full border border-pink-200 bg-white p-1 shadow-sm scrollbar-hide">
+            <div className="inline-flex max-w-full overflow-x-auto rounded-full border border-pink-200 bg-white p-1 shadow-sm">
               {DEPARTMENTS.map((d) => {
                 const isActive = selectedDept === d.id;
                 return (
@@ -442,7 +506,6 @@ function ShopContent() {
 
           {/* Main column */}
           <div className="min-w-0 flex-1">
-            {/* Toolbar (desktop): count + sort */}
             <div className="mb-4 hidden items-center justify-between lg:flex">
               <h2 className="text-2xl font-bold text-gray-900">
                 {products === null
@@ -454,7 +517,6 @@ function ShopContent() {
               <SortDropdown sort={sort} onChange={(s) => updateFilters({ sort: s })} />
             </div>
 
-            {/* Active filters bar */}
             {activeChips.length > 0 && (
               <div className="mb-5 flex flex-wrap items-center gap-2 rounded-xl border border-pink-100 bg-white px-4 py-3 shadow-sm">
                 <span className="text-sm font-semibold text-gray-700">🔎 সক্রিয় ফিল্টার:</span>
@@ -463,7 +525,6 @@ function ShopContent() {
                     key={chip.key}
                     onClick={chip.onRemove}
                     className="inline-flex items-center gap-1 rounded-full bg-pink-100 px-3 py-1 text-xs font-medium text-[#9d174d] hover:bg-pink-200"
-                    title="অপসারণ করুন"
                   >
                     {chip.label}
                     <span aria-hidden>✕</span>
@@ -473,12 +534,11 @@ function ShopContent() {
                   onClick={clearAll}
                   className="ml-auto rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-100"
                 >
-                  সব Clear All
+                  সব Clear
                 </button>
               </div>
             )}
 
-            {/* States */}
             {products === null ? (
               <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
                 <div className="h-12 w-12 animate-spin rounded-full border-4 border-pink-200 border-t-[#db2777]" />
@@ -488,11 +548,11 @@ function ShopContent() {
               <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-pink-200 bg-white px-6 py-16 text-center shadow-sm">
                 <span className="text-5xl">🗄️</span>
                 <p className="text-xl font-semibold text-[#db2777]">
-                  ডাটাবেস কনফিগার করা হয়নি। দয়া করে অ্যাডমিন প্যানেল থেকে MONGODB_URI সেট করুন।
+                  ডাটাবেস কনফিগার করা হয়নি।
                 </p>
                 <Link
                   href="/admin"
-                  className="mt-4 rounded-full bg-[#db2777] px-6 py-2 font-semibold text-white transition-colors hover:bg-[#9d174d]"
+                  className="mt-4 rounded-full bg-[#db2777] px-6 py-2 font-semibold text-white hover:bg-[#9d174d]"
                 >
                   অ্যাডমিন প্যানেলে যাও
                 </Link>
@@ -503,11 +563,10 @@ function ShopContent() {
                 <p className="text-xl font-semibold text-gray-700">
                   এই ফিল্টারে কোনো প্রোডাক্ট পাওয়া যায়নি
                 </p>
-                <p className="text-sm text-gray-500">ফিল্টার বদলে আবার চেষ্টা করুন 💕</p>
                 {hasActiveFilters && (
                   <button
                     onClick={clearAll}
-                    className="mt-4 rounded-full bg-[#db2777] px-6 py-2 font-semibold text-white transition-colors hover:bg-[#9d174d]"
+                    className="mt-4 rounded-full bg-[#db2777] px-6 py-2 font-semibold text-white hover:bg-[#9d174d]"
                   >
                     ফিল্টার মুছে ফেলো
                   </button>
@@ -515,7 +574,6 @@ function ShopContent() {
               </div>
             ) : (
               <>
-                {/* Mobile count */}
                 <div className="mb-4 flex items-center justify-between lg:hidden">
                   <h2 className="text-lg font-bold text-gray-900">
                     {search
@@ -524,7 +582,6 @@ function ShopContent() {
                   </h2>
                 </div>
 
-                {/* Grid: 2 mobile / 3 tablet / 4 desktop */}
                 <div className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 xl:grid-cols-4">
                   {products.map((product) => (
                     <ProductCard key={product._id} product={product} onAdd={addToCart} />
@@ -539,17 +596,13 @@ function ShopContent() {
       {/* Mobile filter drawer */}
       {drawerOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setDrawerOpen(false)}
-            aria-hidden
-          />
+          <div className="absolute inset-0 bg-black/40" onClick={() => setDrawerOpen(false)} aria-hidden />
           <div className="absolute left-0 top-0 h-full w-80 max-w-[85vw] overflow-y-auto bg-white p-5 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-gray-900">ফিল্টার</h2>
               <button
                 onClick={() => setDrawerOpen(false)}
-                className="h-8 w-8 rounded-full bg-pink-50 text-[#db2777] font-bold hover:bg-pink-100"
+                className="h-8 w-8 rounded-full bg-pink-50 font-bold text-[#db2777] hover:bg-pink-100"
                 aria-label="বন্ধ করুন"
               >
                 ✕
@@ -617,7 +670,7 @@ function CustomPriceForm({ minPrice, maxPrice, onSubmit }) {
         e.preventDefault();
         onSubmit(mn.trim(), mx.trim());
       }}
-      className="mt-3 flex items-center gap-2"
+      className="flex items-center gap-2"
     >
       <input
         type="number"
@@ -649,7 +702,6 @@ function CustomPriceForm({ minPrice, maxPrice, onSubmit }) {
 /* ------------------------------------------------------------------ */
 /* Product card                                                        */
 /* ------------------------------------------------------------------ */
-/** Detail-page URL: prefer slug, fall back to _id (legacy products) */
 export function productHref(product) {
   const key = product.slug || product._id;
   return `/product/${encodeURIComponent(key)}`;
