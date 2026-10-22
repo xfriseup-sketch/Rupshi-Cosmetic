@@ -11,6 +11,24 @@ export const dynamic = "force-dynamic";
 // Default categories — used only as a fallback when the database is not
 // configured. Real category lists are managed dynamically via /api/categories.
 const DEFAULT_CATEGORIES = ["Skincare", "Makeup", "Haircare", "Fragrance"];
+const DEPARTMENTS = ["beauty", "fashion", "tech"];
+
+function cleanStringList(value) {
+  return [...new Set(value.map((item) => String(item).trim()).filter(Boolean))].slice(0, 30);
+}
+
+function cleanSpecs(value) {
+  const specs = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const label = String(item.label || "").trim().slice(0, 80);
+    const specValue = String(item.value || "").trim().slice(0, 200);
+    if (!label && !specValue) continue;
+    if (!label || !specValue) return { error: "প্রতিটি স্পেকের label এবং value দুটোই লাগবে" };
+    specs.push({ label, value: specValue });
+  }
+  return { specs: specs.slice(0, 40) };
+}
 
 /**
  * Validate + normalize a product payload coming from POST/PUT requests.
@@ -72,19 +90,83 @@ async function parseProductPayload(body) {
     errors.image = "সঠিক ইমেজ URL দিন (http:// বা https:// দিয়ে শুরু)";
   }
 
+  const data = {
+    name,
+    description,
+    price,
+    category,
+    image,
+    inStock,
+    brand,
+    isFeatured,
+    isNew,
+    isHotOffer,
+    discountPrice,
+  };
+
+  // Optional on update so an older admin form does not wipe these fields.
+  if (body?.department !== undefined && body?.department !== null && String(body.department).trim() !== "") {
+    const department = String(body.department).trim().toLowerCase();
+    if (!DEPARTMENTS.includes(department)) {
+      errors.department = "department অবশ্যই beauty, fashion বা tech হতে হবে";
+    } else {
+      data.department = department;
+    }
+  }
+
+  if (body?.sizes !== undefined) {
+    if (!Array.isArray(body.sizes)) errors.sizes = "sizes অবশ্যই অ্যারে হতে হবে";
+    else data.sizes = cleanStringList(body.sizes);
+  }
+
+  if (body?.colors !== undefined) {
+    if (!Array.isArray(body.colors)) errors.colors = "colors অবশ্যই অ্যারে হতে হবে";
+    else data.colors = cleanStringList(body.colors);
+  }
+
+  if (body?.specs !== undefined) {
+    if (!Array.isArray(body.specs)) {
+      errors.specs = "specs অবশ্যই {label, value} অ্যারে হতে হবে";
+    } else {
+      const parsed = cleanSpecs(body.specs);
+      if (parsed.error) errors.specs = parsed.error;
+      else data.specs = parsed.specs;
+    }
+  }
+
   if (Object.keys(errors).length > 0) return { errors };
 
-  return {
-    data: { name, description, price, category, image, inStock, brand, isFeatured, isNew, isHotOffer, discountPrice },
-  };
+  return { data };
 }
 
 function serialize(product) {
+  const specs = Array.isArray(product.specs)
+    ? product.specs.map((item) => ({
+        label: item?.label || "",
+        value: item?.value || "",
+      }))
+    : [];
   return {
     ...product,
     _id: product._id.toString(),
+    department: product.department || "beauty",
+    sizes: Array.isArray(product.sizes) ? product.sizes : [],
+    colors: Array.isArray(product.colors) ? product.colors : [],
+    specs,
     createdAt: product.createdAt ? product.createdAt.toISOString() : null,
   };
+}
+
+/** Backfill products saved before Phase 16 so ?dept=beauty still finds them. */
+async function backfillDepartments() {
+  const missing = await Product.countDocuments({
+    $or: [{ department: { $exists: false } }, { department: null }, { department: "" }],
+  });
+  if (!missing) return;
+  await Product.updateMany(
+    { $or: [{ department: { $exists: false } }, { department: null }, { department: "" }] },
+    { $set: { department: "beauty" } }
+  );
 }
 
 /**
@@ -96,6 +178,7 @@ function serialize(product) {
  *   ?brand=X              → single brand or comma-separated brands
  *   ?minPrice=Y&maxPrice=Z→ effective price range (uses discountPrice when set)
  *   ?category=slug-or-name→ category incl. sub-categories (children included)
+ *   ?dept=beauty|fashion|tech          → department filter (omit to return all)
  *   ?sort=newest|price-asc|price-desc  (default: newest)
  */
 export async function GET(request) {
@@ -103,9 +186,22 @@ export async function GET(request) {
     const conn = await dbConnect();
     if (!conn) return dbNotConfiguredResponse();
 
+    await backfillDepartments();
+
     const sp = request.nextUrl.searchParams;
 
     const filter = {};
+
+    const dept = (sp.get("dept") || "").trim().toLowerCase();
+    if (dept) {
+      if (!DEPARTMENTS.includes(dept)) {
+        return NextResponse.json(
+          { success: false, message: "dept অবশ্যই beauty, fashion বা tech হতে হবে" },
+          { status: 400 }
+        );
+      }
+      filter.department = dept;
+    }
 
     // ---- single product lookup by ?slug= or ?id= (product detail page) ----
     const slugParam = sp.get("slug");
@@ -276,6 +372,7 @@ export async function POST(request) {
 
     // Auto-generate a unique URL slug from the name (Phase 7)
     data.slug = await ensureUniqueSlug(Product, null, data.name);
+    if (!data.department) data.department = "beauty";
 
     const product = await Product.create(data);
 

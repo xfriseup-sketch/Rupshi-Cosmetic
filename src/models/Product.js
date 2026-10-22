@@ -71,6 +71,34 @@ const ProductSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
+    // Phase 16 — multi-department store. Missing values stay "beauty"
+    // so existing cosmetic products keep showing up.
+    department: {
+      type: String,
+      enum: ["beauty", "fashion", "tech"],
+      default: "beauty",
+      index: true,
+    },
+    sizes: {
+      type: [String],
+      default: [],
+    },
+    colors: {
+      type: [String],
+      default: [],
+    },
+    specs: {
+      type: [
+        new mongoose.Schema(
+          {
+            label: { type: String, trim: true },
+            value: { type: String, trim: true },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
     createdAt: {
       type: Date,
       default: Date.now,
@@ -104,7 +132,11 @@ if (!Product) {
   !Product.schema.paths.isHotOffer ||
   !Product.schema.paths.discountPrice ||
   !Product.schema.paths.brand ||
-  !Product.schema.paths.slug
+  !Product.schema.paths.slug ||
+  !Product.schema.paths.department ||
+  !Product.schema.paths.sizes ||
+  !Product.schema.paths.colors ||
+  !Product.schema.paths.specs
 ) {
   // An older compiled model (e.g. from a previous hot reload) may lack the new
   // Phase 6/7 paths — add them so queries/validations keep working.
@@ -115,6 +147,17 @@ if (!Product) {
   if (!Product.schema.paths.discountPrice) additions.discountPrice = { type: Number, default: null, min: 0 };
   if (!Product.schema.paths.brand) additions.brand = { type: String, trim: true };
   if (!Product.schema.paths.slug) additions.slug = { type: String, lowercase: true, trim: true };
+  if (!Product.schema.paths.department) {
+    additions.department = { type: String, enum: ["beauty", "fashion", "tech"], default: "beauty", index: true };
+  }
+  if (!Product.schema.paths.sizes) additions.sizes = { type: [String], default: [] };
+  if (!Product.schema.paths.colors) additions.colors = { type: [String], default: [] };
+  if (!Product.schema.paths.specs) {
+    additions.specs = {
+      type: [new mongoose.Schema({ label: String, value: String }, { _id: false })],
+      default: [],
+    };
+  }
   Product.schema.add(additions);
 }
 
