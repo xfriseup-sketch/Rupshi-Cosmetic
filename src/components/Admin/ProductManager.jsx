@@ -40,6 +40,12 @@ function Toggle({ checked, onChange, label }) {
   );
 }
 
+const DEPARTMENTS = [
+  { value: "beauty", label: "Beauty" },
+  { value: "fashion", label: "Fashion" },
+  { value: "tech", label: "Tech" },
+];
+
 const emptyForm = {
   name: "",
   description: "",
@@ -52,9 +58,31 @@ const emptyForm = {
   isFeatured: false,
   isNew: false,
   isHotOffer: false,
+  department: "beauty",
+  sizesText: "",
+  colorsText: "",
+  specs: [],
 };
 
+function splitTags(value) {
+  const source = Array.isArray(value) ? value : String(value || "").split(",");
+  return [...new Set(source.map((item) => String(item).trim()).filter(Boolean))];
+}
+
+function cleanSpecs(rows) {
+  return (Array.isArray(rows) ? rows : [])
+    .map((row) => ({
+      label: String(row?.label || "").trim(),
+      value: String(row?.value || "").trim(),
+    }))
+    .filter((row) => row.label || row.value);
+}
+
 function normalizePayload(form) {
+  const department = DEPARTMENTS.some((item) => item.value === form.department)
+    ? form.department
+    : "beauty";
+  const isFashion = department === "fashion";
   return {
     name: form.name.trim(),
     description: (form.description || "").trim(),
@@ -70,7 +98,18 @@ function normalizePayload(form) {
     isFeatured: Boolean(form.isFeatured),
     isNew: Boolean(form.isNew),
     isHotOffer: Boolean(form.isHotOffer),
+    department,
+    sizes: isFashion ? splitTags(form.sizesText) : [],
+    colors: isFashion ? splitTags(form.colorsText) : [],
+    specs: isFashion ? [] : cleanSpecs(form.specs),
   };
+}
+
+function localFieldErrors(form) {
+  if ((form.department || "beauty") === "fashion") return {};
+  const incomplete = cleanSpecs(form.specs).some((row) => !row.label || !row.value);
+  if (!incomplete) return {};
+  return { specs: "Each specification needs both a label and a value." };
 }
 
 export default function ProductManager() {
@@ -125,6 +164,14 @@ export default function ProductManager() {
       isFeatured: Boolean(product.isFeatured),
       isNew: Boolean(product.isNew),
       isHotOffer: Boolean(product.isHotOffer),
+      department: DEPARTMENTS.some((item) => item.value === product.department)
+        ? product.department
+        : "beauty",
+      sizesText: Array.isArray(product.sizes) ? product.sizes.join(", ") : "",
+      colorsText: Array.isArray(product.colors) ? product.colors.join(", ") : "",
+      specs: Array.isArray(product.specs)
+        ? product.specs.map((row) => ({ label: row?.label || "", value: row?.value || "" }))
+        : [],
     });
     setFieldErrors({});
     setMessage(null);
@@ -142,6 +189,14 @@ export default function ProductManager() {
     setSaving(true);
     setFieldErrors({});
     setMessage(null);
+
+    const clientErrors = localFieldErrors(form);
+    if (Object.keys(clientErrors).length > 0) {
+      setFieldErrors(clientErrors);
+      setMessage({ type: "error", text: clientErrors.specs });
+      setSaving(false);
+      return;
+    }
 
     const payload = normalizePayload(form);
     const isEdit = modal && modal !== "create" && modal._id;
@@ -286,7 +341,10 @@ export default function ProductManager() {
                   </td>
                   <td className="px-4 py-3">
                     <p className="font-medium text-slate-800">{p.name}</p>
-                    <p className="text-xs text-slate-400">{p.brand || p.category}</p>
+                    <p className="text-xs text-slate-400">
+                      {(p.department || "beauty").replace(/^./, (c) => c.toUpperCase())}
+                      {p.brand ? ` · ${p.brand}` : ""}
+                    </p>
                   </td>
                   <td className="px-4 py-3">
                     <span className="font-semibold text-pink-600">
@@ -469,6 +527,127 @@ export default function ProductManager() {
                     error={fieldErrors.image}
                   />
                 </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Department *</label>
+                  <select
+                    value={form.department || "beauty"}
+                    onChange={setField("department")}
+                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-400/30"
+                  >
+                    {DEPARTMENTS.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                  {fieldErrors.department && (
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.department}</p>
+                  )}
+                </div>
+
+                {(form.department || "beauty") === "fashion" ? (
+                  <>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Sizes</label>
+                      <input
+                        value={form.sizesText}
+                        onChange={setField("sizesText")}
+                        placeholder="S, M, L, XL"
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-400/30"
+                      />
+                      <p className="mt-1 text-xs text-slate-400">Comma-separated. Example: S, M, L</p>
+                      {fieldErrors.sizes && (
+                        <p className="mt-1 text-xs text-red-600">{fieldErrors.sizes}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Colors</label>
+                      <input
+                        value={form.colorsText}
+                        onChange={setField("colorsText")}
+                        placeholder="Red, Black, Beige"
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-400/30"
+                      />
+                      <p className="mt-1 text-xs text-slate-400">Comma-separated. Example: Red, Black</p>
+                      {fieldErrors.colors && (
+                        <p className="mt-1 text-xs text-red-600">{fieldErrors.colors}</p>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="sm:col-span-2">
+                    <div className="mb-2 flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">Specifications</label>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm((prev) => ({
+                            ...prev,
+                            specs: [...(prev.specs || []), { label: "", value: "" }],
+                          }))
+                        }
+                        className="inline-flex items-center gap-1 rounded-lg border border-pink-200 px-2.5 py-1 text-xs font-semibold text-pink-700 hover:bg-pink-50"
+                      >
+                        <Plus size={12} /> Add Specification
+                      </button>
+                    </div>
+                    {(form.specs || []).length === 0 ? (
+                      <p className="rounded-lg border border-dashed border-gray-200 px-3 py-3 text-xs text-slate-400">
+                        No specifications yet. Example: Volume / 200ml
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {(form.specs || []).map((row, index) => (
+                          <div key={index} className="flex items-center gap-2">
+                            <input
+                              value={row.label}
+                              onChange={(event) =>
+                                setForm((prev) => ({
+                                  ...prev,
+                                  specs: prev.specs.map((item, i) =>
+                                    i === index ? { ...item, label: event.target.value } : item
+                                  ),
+                                }))
+                              }
+                              placeholder="Label"
+                              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-400/30"
+                            />
+                            <input
+                              value={row.value}
+                              onChange={(event) =>
+                                setForm((prev) => ({
+                                  ...prev,
+                                  specs: prev.specs.map((item, i) =>
+                                    i === index ? { ...item, value: event.target.value } : item
+                                  ),
+                                }))
+                              }
+                              placeholder="Value"
+                              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-400/30"
+                            />
+                            <button
+                              type="button"
+                              aria-label="Remove specification"
+                              onClick={() =>
+                                setForm((prev) => ({
+                                  ...prev,
+                                  specs: prev.specs.filter((_, i) => i !== index),
+                                }))
+                              }
+                              className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {fieldErrors.specs && (
+                      <p className="mt-1 text-xs text-red-600">{fieldErrors.specs}</p>
+                    )}
+                  </div>
+                )}
 
                 <div className="sm:col-span-2 flex flex-wrap gap-5 border-t border-gray-100 pt-4">
                   <Toggle checked={form.inStock} onChange={(v) => setForm((p) => ({ ...p, inStock: v }))} label="In Stock" />
