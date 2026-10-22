@@ -26,12 +26,23 @@ const SORT_OPTIONS = [
   { key: "price-desc", label: "দাম বেশি → কম" },
 ];
 
-/** ফিল্টারের স্ট্রাকচার ঠিক রাখার জন্য কনফিগ (ভ্যালুগুলো এখন ডাইনামিক হবে) */
-const DEPT_CONFIG = {
-  beauty: { showSize: false, showColor: false, showBrand: true, showCategory: true },
-  fashion: { showSize: true, showColor: true, showBrand: false, showCategory: false },
-  tech: { showSize: false, showColor: false, showBrand: true, showCategory: true },
+/** Which filter blocks each department shows (structure only — data is dynamic) */
+const DEPT_FILTERS = {
+  beauty: { showCategory: true, showBrand: true, showSizeColor: false },
+  fashion: { showCategory: true, showBrand: false, showSizeColor: true },
+  tech: { showCategory: true, showBrand: true, showSizeColor: false },
 };
+
+function nestCategories(flat) {
+  const byId = new Map(flat.map((c) => [c._id, { ...c, children: [] }]));
+  const roots = [];
+  for (const node of byId.values()) {
+    const parentId = node.parentCategory ? String(node.parentCategory) : null;
+    if (parentId && byId.has(parentId)) byId.get(parentId).children.push(node);
+    else roots.push(node);
+  }
+  return roots;
+}
 
 /* ------------------------------------------------------------------ */
 /* Page                                                                */
@@ -60,33 +71,39 @@ function ShopContent() {
   const [products, setProducts] = useState(null);
   const [count, setCount] = useState(0);
   const [dbNotConfigured, setDbNotConfigured] = useState(false);
-  
-  // ডাইনামিক ফিল্টার অপশন স্টেট
-  const [filterOptions, setFilterOptions] = useState({
-    categories: [],
-    brands: [],
-    sizes: [],
-    colors: [],
-  });
-
+  const [categories, setCategories] = useState([]); // flat, dept-filtered
+  const [facetBrands, setFacetBrands] = useState([]);
+  const [facetSizes, setFacetSizes] = useState([]);
+  const [facetColors, setFacetColors] = useState([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // ---- URL is source of truth ----
   const selectedDept = searchParams.get("dept") || "beauty";
   const selectedCategories = useMemo(
-    () => (searchParams.get("category") ? searchParams.get("category").split(",").filter(Boolean) : []),
+    () =>
+      searchParams.get("category")
+        ? searchParams.get("category").split(",").filter(Boolean)
+        : [],
     [searchParams]
   );
   const selectedBrands = useMemo(
-    () => (searchParams.get("brand") ? searchParams.get("brand").split(",").filter(Boolean) : []),
+    () =>
+      searchParams.get("brand")
+        ? searchParams.get("brand").split(",").filter(Boolean)
+        : [],
     [searchParams]
   );
   const selectedSizes = useMemo(
-    () => (searchParams.get("size") ? searchParams.get("size").split(",").filter(Boolean) : []),
+    () =>
+      searchParams.get("size")
+        ? searchParams.get("size").split(",").filter(Boolean)
+        : [],
     [searchParams]
   );
   const selectedColors = useMemo(
-    () => (searchParams.get("color") ? searchParams.get("color").split(",").filter(Boolean) : []),
+    () =>
+      searchParams.get("color")
+        ? searchParams.get("color").split(",").filter(Boolean)
+        : [],
     [searchParams]
   );
   const minPrice = searchParams.get("minPrice") || "";
@@ -94,7 +111,7 @@ function ShopContent() {
   const sort = searchParams.get("sort") || "newest";
   const search = (searchParams.get("search") || searchParams.get("q") || "").trim();
 
-  const cfg = DEPT_CONFIG[selectedDept] || DEPT_CONFIG.beauty;
+  const filterLayout = DEPT_FILTERS[selectedDept] || DEPT_FILTERS.beauty;
 
   const fetchTimer = useRef(null);
   const loadProducts = useCallback((params) => {
@@ -109,26 +126,33 @@ function ShopContent() {
           setProducts([]);
           return;
         }
-        if (!res.ok) throw new Error(`Request failed with status ${res.status}`);
+        if (!res.ok) throw new Error(`Request failed ${res.status}`);
 
         setDbNotConfigured(false);
-        const fetchedProducts = data?.products ?? [];
-        setProducts(fetchedProducts);
-        setCount(data?.count ?? 0);
+        let list = data?.products ?? [];
 
-        // 🌟 ডাইনামিক ফিল্টার লজিক: প্রোডাক্ট থেকে ইউনিক ভ্যালু বের করা
-        const dynamicCats = [...new Set(fetchedProducts.map(p => p.category).filter(Boolean))];
-        const dynamicBrands = [...new Set(fetchedProducts.map(p => p.brand).filter(Boolean))];
-        const dynamicSizes = [...new Set(fetchedProducts.flatMap(p => p.sizes || []).filter(Boolean))];
-        const dynamicColors = [...new Set(fetchedProducts.flatMap(p => p.colors || []).filter(Boolean))];
+        // Client-side size/color filter (API may not support yet)
+        const sizeParam = params.get("size");
+        const colorParam = params.get("color");
+        if (sizeParam) {
+          const sizes = sizeParam.split(",").filter(Boolean);
+          list = list.filter(
+            (p) =>
+              Array.isArray(p.sizes) &&
+              p.sizes.some((s) => sizes.includes(String(s)))
+          );
+        }
+        if (colorParam) {
+          const colors = colorParam.split(",").filter(Boolean);
+          list = list.filter(
+            (p) =>
+              Array.isArray(p.colors) &&
+              p.colors.some((c) => colors.includes(String(c)))
+          );
+        }
 
-        setFilterOptions({
-          categories: dynamicCats.length > 0 ? dynamicCats : ["Skincare", "Makeup", "Haircare", "T-Shirt", "Saree", "Gaming Cooler"], // Fallback
-          brands: dynamicBrands,
-          sizes: dynamicSizes,
-          colors: dynamicColors,
-        });
-
+        setProducts(list);
+        setCount(list.length);
       } catch (error) {
         console.error("Failed to fetch products:", error);
         setProducts([]);
@@ -136,7 +160,7 @@ function ShopContent() {
     }, 250);
   }, []);
 
-  // Fetch when URL changes
+  // Fetch products when URL filters change
   useEffect(() => {
     const params = new URLSearchParams();
     params.set("dept", selectedDept);
@@ -162,7 +186,60 @@ function ShopContent() {
     loadProducts,
   ]);
 
-  /** Update URL query — triggers fetch */
+  // Load dynamic facets for current department only
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        // Categories for this department only
+        const catRes = await fetch(`/api/categories?dept=${selectedDept}`);
+        const catData = await catRes.json().catch(() => null);
+        if (!cancelled && catData?.success) {
+          setCategories(catData.categories || []);
+        } else if (!cancelled) {
+          // Fallback: all categories if API ignores dept
+          const all = await fetch("/api/categories").then((r) => r.json()).catch(() => null);
+          if (!cancelled && all?.success) setCategories(all.categories || []);
+        }
+      } catch {
+        if (!cancelled) setCategories([]);
+      }
+    })();
+
+    (async () => {
+      try {
+        // Products of this dept only → unique brands / sizes / colors
+        const res = await fetch(`/api/products?dept=${selectedDept}&limit=200`);
+        const data = await res.json().catch(() => null);
+        if (cancelled || !data?.success) return;
+
+        const list = data.products || [];
+        const brands = [...new Set(list.map((p) => p.brand).filter(Boolean))].sort();
+        const sizes = [
+          ...new Set(list.flatMap((p) => (Array.isArray(p.sizes) ? p.sizes : [])).filter(Boolean)),
+        ].sort();
+        const colors = [
+          ...new Set(list.flatMap((p) => (Array.isArray(p.colors) ? p.colors : [])).filter(Boolean)),
+        ].sort();
+
+        setFacetBrands(brands);
+        setFacetSizes(sizes);
+        setFacetColors(colors);
+      } catch {
+        if (!cancelled) {
+          setFacetBrands([]);
+          setFacetSizes([]);
+          setFacetColors([]);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDept]);
+
   const updateFilters = (next) => {
     const params = new URLSearchParams(searchParams.toString());
 
@@ -174,7 +251,7 @@ function ShopContent() {
     if (next.dept !== undefined) {
       if (next.dept) params.set("dept", next.dept);
       else params.delete("dept");
-      // Reset department-specific filters when switching tab
+      // Reset filters on department switch
       params.delete("category");
       params.delete("brand");
       params.delete("size");
@@ -193,16 +270,16 @@ function ShopContent() {
       next.maxPrice ? params.set("maxPrice", next.maxPrice) : params.delete("maxPrice");
     }
     if (next.sort !== undefined) {
-      next.sort && next.sort !== "newest" ? params.set("sort", next.sort) : params.delete("sort");
+      next.sort && next.sort !== "newest"
+        ? params.set("sort", next.sort)
+        : params.delete("sort");
     }
 
     const qs = params.toString();
     router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
 
-  const setDepartment = (deptId) => {
-    updateFilters({ dept: deptId });
-  };
+  const setDepartment = (deptId) => updateFilters({ dept: deptId });
 
   const toggleInList = (list, value) =>
     list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
@@ -223,33 +300,45 @@ function ShopContent() {
     Boolean(maxPrice) ||
     Boolean(search);
 
-  // Active chips
+  const catTree = useMemo(() => nestCategories(categories), [categories]);
+
   const activeChips = [
-    ...selectedCategories.map((c) => ({
-      key: `c-${c}`,
-      label: `ক্যাটাগরি: ${c}`,
-      onRemove: () => updateFilters({ category: selectedCategories.filter((v) => v !== c) }),
+    ...selectedCategories.map((slugOrName) => ({
+      key: `c-${slugOrName}`,
+      label: `ক্যাটাগরি: ${
+        categories.find((c) => c.slug === slugOrName || c.name === slugOrName)?.name ||
+        slugOrName
+      }`,
+      onRemove: () =>
+        updateFilters({
+          category: selectedCategories.filter((v) => v !== slugOrName),
+        }),
     })),
     ...selectedBrands.map((b) => ({
       key: `b-${b}`,
       label: `ব্র্যান্ড: ${b}`,
-      onRemove: () => updateFilters({ brand: selectedBrands.filter((v) => v !== b) }),
+      onRemove: () =>
+        updateFilters({ brand: selectedBrands.filter((v) => v !== b) }),
     })),
     ...selectedSizes.map((s) => ({
       key: `s-${s}`,
       label: `সাইজ: ${s}`,
-      onRemove: () => updateFilters({ size: selectedSizes.filter((v) => v !== s) }),
+      onRemove: () =>
+        updateFilters({ size: selectedSizes.filter((v) => v !== s) }),
     })),
     ...selectedColors.map((c) => ({
       key: `col-${c}`,
       label: `কালার: ${c}`,
-      onRemove: () => updateFilters({ color: selectedColors.filter((v) => v !== c) }),
+      onRemove: () =>
+        updateFilters({ color: selectedColors.filter((v) => v !== c) }),
     })),
     ...(minPrice || maxPrice
       ? [
           {
             key: "price",
-            label: `দাম: ${minPrice ? formatBDT(minPrice) : "৳০"} – ${maxPrice ? formatBDT(maxPrice) : "∞"}`,
+            label: `দাম: ${minPrice ? formatBDT(minPrice) : "৳০"} – ${
+              maxPrice ? formatBDT(maxPrice) : "∞"
+            }`,
             onRemove: () => updateFilters({ minPrice: "", maxPrice: "" }),
           },
         ]
@@ -259,7 +348,7 @@ function ShopContent() {
   /* ------------------------- Dynamic Sidebar ------------------------ */
   const sidebar = (
     <div className="space-y-6">
-      {/* Price Range — always shown */}
+      {/* 1. Price — all departments */}
       <div>
         <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-700">
           💰 দামের রেঞ্জ
@@ -271,130 +360,174 @@ function ShopContent() {
         />
       </div>
 
-      {/* Category — dynamic */}
-      {cfg.showCategory && filterOptions.categories.length > 0 && (
+      {/* 2a. Category — beauty, fashion, tech (dynamic tree) */}
+      {filterLayout.showCategory && (
         <div>
           <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-700">
             🏷️ ক্যাটাগরি
           </h3>
-          <div className="space-y-1">
-            {filterOptions.categories.map((cat) => {
-              const active = selectedCategories.includes(cat);
-              return (
-                <label
-                  key={cat}
-                  className={`flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition ${
-                    active ? "bg-pink-50 font-semibold text-[#db2777]" : "text-gray-700 hover:bg-pink-50"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={active}
-                    onChange={() =>
-                      updateFilters({ category: toggleInList(selectedCategories, cat) })
-                    }
-                    className="h-4 w-4 accent-[#db2777]"
-                  />
-                  <span>{cat}</span>
-                </label>
-              );
-            })}
-          </div>
+          {catTree.length === 0 ? (
+            <p className="text-sm text-gray-400">কোনো ক্যাটাগরি নেই</p>
+          ) : (
+            <div className="space-y-1">
+              {catTree.map((main) => (
+                <div key={main._id}>
+                  <label
+                    className={`flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium transition ${
+                      selectedCategories.includes(main.slug)
+                        ? "bg-pink-50 text-[#db2777]"
+                        : "text-gray-800 hover:bg-pink-50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedCategories.includes(main.slug)}
+                      onChange={() =>
+                        updateFilters({
+                          category: toggleInList(selectedCategories, main.slug),
+                        })
+                      }
+                      className="h-4 w-4 accent-[#db2777]"
+                    />
+                    <span>
+                      {main.icon} {main.name}
+                    </span>
+                  </label>
+                  {main.children?.length > 0 && (
+                    <div className="ml-6 border-l border-pink-100 pl-2">
+                      {main.children.map((sub) => (
+                        <label
+                          key={sub._id}
+                          className={`flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-sm transition ${
+                            selectedCategories.includes(sub.slug)
+                              ? "bg-pink-50 font-medium text-[#db2777]"
+                              : "text-gray-600 hover:bg-pink-50"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedCategories.includes(sub.slug)}
+                            onChange={() =>
+                              updateFilters({
+                                category: toggleInList(selectedCategories, sub.slug),
+                              })
+                            }
+                            className="h-4 w-4 accent-[#db2777]"
+                          />
+                          <span>{sub.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Brand — dynamic */}
-      {cfg.showBrand && filterOptions.brands.length > 0 && (
+      {/* 2b. Size & Color — fashion only (from products) */}
+      {filterLayout.showSizeColor && (
+        <>
+          <div>
+            <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-700">
+              📏 সাইজ
+            </h3>
+            {facetSizes.length === 0 ? (
+              <p className="text-sm text-gray-400">কোনো সাইজ নেই</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {facetSizes.map((s) => {
+                  const active = selectedSizes.includes(s);
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() =>
+                        updateFilters({ size: toggleInList(selectedSizes, s) })
+                      }
+                      className={`min-w-[2.75rem] rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                        active
+                          ? "border-[#db2777] bg-[#db2777] text-white"
+                          : "border-pink-200 bg-white text-gray-700 hover:border-[#db2777]"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-700">
+              🎨 কালার
+            </h3>
+            {facetColors.length === 0 ? (
+              <p className="text-sm text-gray-400">কোনো কালার নেই</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {facetColors.map((c) => {
+                  const active = selectedColors.includes(c);
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() =>
+                        updateFilters({ color: toggleInList(selectedColors, c) })
+                      }
+                      className={`inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+                        active
+                          ? "border-[#db2777] bg-pink-50 text-[#db2777]"
+                          : "border-pink-200 bg-white text-gray-700 hover:border-[#db2777]"
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* 3. Brand — beauty & tech (from products) */}
+      {filterLayout.showBrand && (
         <div>
           <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-700">
             ✨ ব্র্যান্ড
           </h3>
-          <div className="space-y-1">
-            {filterOptions.brands.map((b) => {
-              const active = selectedBrands.includes(b);
-              return (
-                <label
-                  key={b}
-                  className={`flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition ${
-                    active ? "bg-pink-50 font-semibold text-[#db2777]" : "text-gray-700 hover:bg-pink-50"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={active}
-                    onChange={() => updateFilters({ brand: toggleInList(selectedBrands, b) })}
-                    className="h-4 w-4 accent-[#db2777]"
-                  />
-                  <span className="truncate">{b}</span>
-                </label>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Size — dynamic (Fashion only) */}
-      {cfg.showSize && filterOptions.sizes.length > 0 && (
-        <div>
-          <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-700">
-            📏 সাইজ
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {filterOptions.sizes.map((s) => {
-              const active = selectedSizes.includes(s);
-              return (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => updateFilters({ size: toggleInList(selectedSizes, s) })}
-                  className={`min-w-[2.75rem] rounded-lg border px-3 py-2 text-sm font-semibold transition ${
-                    active
-                      ? "border-[#db2777] bg-[#db2777] text-white"
-                      : "border-pink-200 bg-white text-gray-700 hover:border-[#db2777] hover:text-[#db2777]"
-                  }`}
-                >
-                  {s}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Color — dynamic (Fashion only) */}
-      {cfg.showColor && filterOptions.colors.length > 0 && (
-        <div>
-          <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-700">
-            🎨 কালার
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {filterOptions.colors.map((c) => {
-              const active = selectedColors.includes(c);
-              // Simple color mapping for UI dots
-              const colorMap = {
-                Red: "#ef4444", Black: "#171717", White: "#f5f5f5", 
-                Blue: "#3b82f6", Pink: "#ec4899", Green: "#22c55e", Purple: "#a855f7"
-              };
-              return (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => updateFilters({ color: toggleInList(selectedColors, c) })}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition ${
-                    active
-                      ? "border-[#db2777] bg-pink-50 text-[#db2777]"
-                      : "border-pink-200 bg-white text-gray-700 hover:border-[#db2777]"
-                  }`}
-                >
-                  <span
-                    className="h-3.5 w-3.5 rounded-full border border-gray-200"
-                    style={{ backgroundColor: colorMap[c] || "#ccc" }}
-                  />
-                  {c}
-                </button>
-              );
-            })}
-          </div>
+          {facetBrands.length === 0 ? (
+            <p className="text-sm text-gray-400">কোনো ব্র্যান্ড নেই</p>
+          ) : (
+            <div className="max-h-52 space-y-1 overflow-y-auto pr-1">
+              {facetBrands.map((b) => {
+                const active = selectedBrands.includes(b);
+                return (
+                  <label
+                    key={b}
+                    className={`flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition ${
+                      active
+                        ? "bg-pink-50 font-semibold text-[#db2777]"
+                        : "text-gray-700 hover:bg-pink-50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={active}
+                      onChange={() =>
+                        updateFilters({ brand: toggleInList(selectedBrands, b) })
+                      }
+                      className="h-4 w-4 accent-[#db2777]"
+                    />
+                    <span className="truncate">{b}</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -403,7 +536,6 @@ function ShopContent() {
   /* ------------------------------ render ---------------------------- */
   return (
     <main className="min-h-screen bg-pink-50">
-      {/* Shop Header + Department Tabs */}
       <section className="bg-gradient-to-br from-pink-100 via-pink-50 to-white">
         <div className="mx-auto max-w-7xl px-4 py-12 text-center">
           <h1 className="text-3xl font-extrabold text-gray-900 md:text-4xl">
@@ -439,7 +571,6 @@ function ShopContent() {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-10">
-        {/* Mobile filter button */}
         <div className="mb-4 flex items-center justify-between lg:hidden">
           <button
             onClick={() => setDrawerOpen(true)}
@@ -456,7 +587,6 @@ function ShopContent() {
         </div>
 
         <div className="flex gap-8">
-          {/* Desktop sidebar */}
           <aside className="hidden w-72 shrink-0 lg:block">
             <div className="sticky top-24 rounded-2xl border border-pink-100 bg-white p-5 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
@@ -474,7 +604,6 @@ function ShopContent() {
             </div>
           </aside>
 
-          {/* Main column */}
           <div className="min-w-0 flex-1">
             <div className="mb-4 hidden items-center justify-between lg:flex">
               <h2 className="text-2xl font-bold text-gray-900">
@@ -517,9 +646,7 @@ function ShopContent() {
             ) : products.length === 0 && dbNotConfigured ? (
               <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-pink-200 bg-white px-6 py-16 text-center shadow-sm">
                 <span className="text-5xl">🗄️</span>
-                <p className="text-xl font-semibold text-[#db2777]">
-                  ডাটাবেস কনফিগার করা হয়নি।
-                </p>
+                <p className="text-xl font-semibold text-[#db2777]">ডাটাবেস কনফিগার করা হয়নি।</p>
                 <Link
                   href="/admin"
                   className="mt-4 rounded-full bg-[#db2777] px-6 py-2 font-semibold text-white hover:bg-[#9d174d]"
@@ -551,7 +678,6 @@ function ShopContent() {
                       : `মোট ${count}টি পণ্য`}
                   </h2>
                 </div>
-
                 <div className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 xl:grid-cols-4">
                   {products.map((product) => (
                     <ProductCard key={product._id} product={product} onAdd={addToCart} />
@@ -563,17 +689,19 @@ function ShopContent() {
         </div>
       </section>
 
-      {/* Mobile filter drawer */}
       {drawerOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setDrawerOpen(false)} aria-hidden />
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setDrawerOpen(false)}
+            aria-hidden
+          />
           <div className="absolute left-0 top-0 h-full w-80 max-w-[85vw] overflow-y-auto bg-white p-5 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-gray-900">ফিল্টার</h2>
               <button
                 onClick={() => setDrawerOpen(false)}
                 className="h-8 w-8 rounded-full bg-pink-50 font-bold text-[#db2777] hover:bg-pink-100"
-                aria-label="বন্ধ করুন"
               >
                 ✕
               </button>
@@ -600,9 +728,6 @@ function ShopContent() {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Sort dropdown                                                       */
-/* ------------------------------------------------------------------ */
 function SortDropdown({ sort, onChange }) {
   return (
     <label className="flex items-center gap-2 text-sm text-gray-600">
@@ -622,9 +747,6 @@ function SortDropdown({ sort, onChange }) {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Custom min/max price form                                           */
-/* ------------------------------------------------------------------ */
 function CustomPriceForm({ minPrice, maxPrice, onSubmit }) {
   const [mn, setMn] = useState(minPrice);
   const [mx, setMx] = useState(maxPrice);
@@ -669,9 +791,6 @@ function CustomPriceForm({ minPrice, maxPrice, onSubmit }) {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Product card                                                        */
-/* ------------------------------------------------------------------ */
 export function productHref(product) {
   const key = product.slug || product._id;
   return `/product/${encodeURIComponent(key)}`;
@@ -679,7 +798,8 @@ export function productHref(product) {
 
 function ProductCard({ product, onAdd }) {
   const hasDiscount =
-    product.discountPrice != null && Number(product.discountPrice) < Number(product.price);
+    product.discountPrice != null &&
+    Number(product.discountPrice) < Number(product.price);
   const discountPct = hasDiscount
     ? Math.round(((product.price - product.discountPrice) / product.price) * 100)
     : 0;
@@ -687,7 +807,11 @@ function ProductCard({ product, onAdd }) {
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-pink-100 bg-white shadow-sm transition-all hover:-translate-y-1 hover:border-[#db2777] hover:shadow-lg">
       <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-pink-100">
-        <Link href={productHref(product)} className="absolute inset-0 z-0 block" aria-label={product.name}>
+        <Link
+          href={productHref(product)}
+          className="absolute inset-0 z-0 block"
+          aria-label={product.name}
+        >
           {product.image ? (
             <Image
               src={product.image}
@@ -699,7 +823,6 @@ function ProductCard({ product, onAdd }) {
           ) : (
             <div className="flex h-full w-full items-center justify-center text-5xl">💄</div>
           )}
-
           <div className="absolute left-2 top-2 z-10 flex flex-col gap-1">
             {product.isNew && (
               <span className="rounded-full bg-blue-600 px-2.5 py-1 text-xs font-bold text-white shadow">
@@ -712,7 +835,6 @@ function ProductCard({ product, onAdd }) {
               </span>
             )}
           </div>
-
           {!product.inStock && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50">
               <span className="rounded-full bg-white/90 px-4 py-1.5 text-sm font-bold text-red-600">
@@ -721,7 +843,6 @@ function ProductCard({ product, onAdd }) {
             </div>
           )}
         </Link>
-
         <button
           type="button"
           disabled={!product.inStock}
@@ -731,7 +852,6 @@ function ProductCard({ product, onAdd }) {
           ⚡ কার্টে যোগ করো
         </button>
       </div>
-
       <div className="relative z-10 flex flex-1 flex-col p-3 sm:p-4">
         {product.brand && (
           <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
@@ -741,7 +861,6 @@ function ProductCard({ product, onAdd }) {
         <h3 className="mt-0.5 line-clamp-2 text-sm font-bold text-gray-900 group-hover:text-[#db2777] sm:text-base">
           <Link href={productHref(product)}>{product.name}</Link>
         </h3>
-
         <div className="mt-2 flex flex-wrap items-baseline gap-2">
           {hasDiscount ? (
             <>
@@ -758,7 +877,6 @@ function ProductCard({ product, onAdd }) {
             </span>
           )}
         </div>
-
         <button
           type="button"
           disabled={!product.inStock}
