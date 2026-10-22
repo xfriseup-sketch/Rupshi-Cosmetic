@@ -30,6 +30,13 @@ const SORT_OPTIONS = [
   { key: "price-desc", label: "দাম বেশি → কম" },
 ];
 
+/** Department tabs for multi-department shop */
+const DEPARTMENTS = [
+  { id: "beauty", label: "Beauty", icon: "💄" },
+  { id: "fashion", label: "Fashion", icon: "👕" },
+  { id: "tech", label: "Tech", icon: "🎮" },
+];
+
 /** Build a nested tree [{ ...cat, children: [...] }] from a flat list */
 function nestCategories(flat) {
   const byId = new Map(flat.map((c) => [c._id, { ...c, children: [] }]));
@@ -75,6 +82,7 @@ function ShopContent() {
   const [brands, setBrands] = useState([]); // unique brand names
 
   // ---- filters (single source of truth: URL query params) ----
+  const selectedDept = searchParams.get("dept") || "beauty";
   const selectedCategories = useMemo(
     () => (searchParams.get("category") ? searchParams.get("category").split(",").filter(Boolean) : []),
     [searchParams]
@@ -123,6 +131,7 @@ function ShopContent() {
   // Fetch whenever the URL query changes (URL is the state store)
   useEffect(() => {
     const params = new URLSearchParams();
+    params.set("dept", selectedDept);
     if (selectedCategories.length) params.set("category", selectedCategories.join(","));
     if (selectedBrands.length) params.set("brand", selectedBrands.join(","));
     if (minPrice) params.set("minPrice", minPrice);
@@ -130,7 +139,7 @@ function ShopContent() {
     if (search) params.set("search", search);
     params.set("sort", sort);
     loadProducts(params);
-  }, [selectedCategories, selectedBrands, minPrice, maxPrice, sort, search, loadProducts]);
+  }, [selectedDept, selectedCategories, selectedBrands, minPrice, maxPrice, sort, search, loadProducts]);
 
   // Load categories (nested tree) + derive brand list once
   useEffect(() => {
@@ -171,6 +180,9 @@ function ShopContent() {
       else params.delete(key);
     };
 
+    if (next.dept !== undefined) {
+      next.dept ? params.set("dept", next.dept) : params.delete("dept");
+    }
     if (next.category !== undefined) setList("category", next.category);
     if (next.brand !== undefined) setList("brand", next.brand);
     if (next.minPrice !== undefined) {
@@ -187,11 +199,20 @@ function ShopContent() {
     router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
 
+  const setDepartment = (deptId) => {
+    // Switch department; keep other filters so UX stays smooth
+    updateFilters({ dept: deptId });
+  };
+
   const toggleInList = (list, value) =>
     list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 
   const clearAll = () => {
-    router.push(pathname, { scroll: false });
+    // Keep current department when clearing other filters
+    const params = new URLSearchParams();
+    if (selectedDept && selectedDept !== "beauty") params.set("dept", selectedDept);
+    const qs = params.toString();
+    router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
 
   const hasActiveFilters =
@@ -202,11 +223,6 @@ function ShopContent() {
     Boolean(search);
 
   const catTree = useMemo(() => nestCategories(categories), [categories]);
-  const nameById = useMemo(() => {
-    const m = {};
-    categories.forEach((c) => (m[c._id] = c.name));
-    return m;
-  }, [categories]);
 
   // Active filter chips
   const activeChips = [
@@ -262,7 +278,6 @@ function ShopContent() {
                   />
                   <span>{main.icon} {main.name}</span>
                 </label>
-                {/* Nested sub-categories (indented) */}
                 {main.children.length > 0 && (
                   <div className="ml-6 border-l border-pink-100 pl-2">
                     {main.children.map((sub) => (
@@ -341,7 +356,6 @@ function ShopContent() {
           ))}
         </div>
 
-        {/* Custom min/max inputs */}
         <CustomPriceForm
           minPrice={minPrice}
           maxPrice={maxPrice}
@@ -361,8 +375,32 @@ function ShopContent() {
             আমাদের <span className="text-[#db2777]">কালেকশন</span>
           </h1>
           <p className="mt-3 text-gray-600">
-            স্কিনকেয়ার, মেকআপ, হেয়ারকেয়ার ও ফ্র্যাগ্রেন্স — সব কিছু এক জায়গায়
+            স্কিনকেয়ার, ফ্যাশন ও টেক — সব কিছু এক জায়গায়
           </p>
+
+          {/* Department Tab Switcher */}
+          <div className="mt-8 flex justify-center">
+            <div className="inline-flex max-w-full overflow-x-auto rounded-full border border-pink-200 bg-white p-1 shadow-sm scrollbar-hide">
+              {DEPARTMENTS.map((d) => {
+                const isActive = selectedDept === d.id;
+                return (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => setDepartment(d.id)}
+                    className={`shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold transition-all sm:px-6 ${
+                      isActive
+                        ? "bg-[#db2777] text-white shadow-md"
+                        : "text-gray-600 hover:bg-pink-50 hover:text-[#db2777]"
+                    }`}
+                  >
+                    <span className="mr-1.5">{d.icon}</span>
+                    {d.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </section>
 
@@ -535,8 +573,6 @@ function ShopContent() {
           </div>
         </div>
       )}
-
-
     </main>
   );
 }
@@ -611,7 +647,7 @@ function CustomPriceForm({ minPrice, maxPrice, onSubmit }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Product card (Phase 6 spec)                                         */
+/* Product card                                                        */
 /* ------------------------------------------------------------------ */
 /** Detail-page URL: prefer slug, fall back to _id (legacy products) */
 export function productHref(product) {
@@ -628,47 +664,42 @@ function ProductCard({ product, onAdd }) {
 
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-pink-100 bg-white shadow-sm transition-all hover:-translate-y-1 hover:border-[#db2777] hover:shadow-lg">
-      {/* Image (links to the product detail page) */}
       <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-pink-100">
-      <Link href={productHref(product)} className="absolute inset-0 z-0 block" aria-label={product.name}>
-        {product.image ? (
-          <Image
-            src={product.image}
-            alt={product.name}
-            fill
-            sizes="(max-width: 768px) 45vw, (max-width: 1280px) 30vw, 22vw"
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-5xl">💄</div>
-        )}
-
-        {/* Badges — top corner */}
-        <div className="absolute left-2 top-2 z-10 flex flex-col gap-1">
-          {product.isNew && (
-            <span className="rounded-full bg-blue-600 px-2.5 py-1 text-xs font-bold text-white shadow">
-              NEW
-            </span>
+        <Link href={productHref(product)} className="absolute inset-0 z-0 block" aria-label={product.name}>
+          {product.image ? (
+            <Image
+              src={product.image}
+              alt={product.name}
+              fill
+              sizes="(max-width: 768px) 45vw, (max-width: 1280px) 30vw, 22vw"
+              className="object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-5xl">💄</div>
           )}
-          {hasDiscount && (
-            <span className="rounded-full bg-red-600 px-2.5 py-1 text-xs font-bold text-white shadow">
-              SALE -{discountPct}%
-            </span>
-          )}
-        </div>
 
-        {/* Out-of-stock overlay */}
-        {!product.inStock && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50">
-            <span className="rounded-full bg-white/90 px-4 py-1.5 text-sm font-bold text-red-600">
-              স্টক নেই
-            </span>
+          <div className="absolute left-2 top-2 z-10 flex flex-col gap-1">
+            {product.isNew && (
+              <span className="rounded-full bg-blue-600 px-2.5 py-1 text-xs font-bold text-white shadow">
+                NEW
+              </span>
+            )}
+            {hasDiscount && (
+              <span className="rounded-full bg-red-600 px-2.5 py-1 text-xs font-bold text-white shadow">
+                SALE -{discountPct}%
+              </span>
+            )}
           </div>
-        )}
 
-      </Link>
+          {!product.inStock && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50">
+              <span className="rounded-full bg-white/90 px-4 py-1.5 text-sm font-bold text-red-600">
+                স্টক নেই
+              </span>
+            </div>
+          )}
+        </Link>
 
-        {/* Quick Add — slides up on hover (desktop only) */}
         <button
           type="button"
           disabled={!product.inStock}
@@ -679,7 +710,6 @@ function ProductCard({ product, onAdd }) {
         </button>
       </div>
 
-      {/* Details */}
       <div className="relative z-10 flex flex-1 flex-col p-3 sm:p-4">
         {product.brand && (
           <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
@@ -707,7 +737,6 @@ function ProductCard({ product, onAdd }) {
           )}
         </div>
 
-        {/* Mobile add button (Quick Add hover is desktop-only) */}
         <button
           type="button"
           disabled={!product.inStock}
