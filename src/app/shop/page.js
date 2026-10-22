@@ -260,7 +260,7 @@ function ShopContent() {
                     }
                     className="h-4 w-4 accent-[#db2777]"
                   />
-                  <span>{main.icon} {main.name}</span>
+                  <span>{main.name}</span>
                 </label>
                 {/* Nested sub-categories (indented) */}
                 {main.children.length > 0 && (
