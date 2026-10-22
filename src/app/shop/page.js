@@ -26,46 +26,12 @@ const SORT_OPTIONS = [
   { key: "price-desc", label: "দাম বেশি → কম" },
 ];
 
-/** Fixed options per department (ultra-simple) */
+/** ফিল্টারের স্ট্রাকচার ঠিক রাখার জন্য কনফিগ (ভ্যালুগুলো এখন ডাইনামিক হবে) */
 const DEPT_CONFIG = {
-  beauty: {
-    categories: ["Skincare", "Makeup", "Haircare"],
-    brands: ["The Ordinary", "CeraVe", "L'Oreal", "Maybelline", "Nivea"],
-    showSize: false,
-    showColor: false,
-    showBrand: true,
-    showCategory: true,
-  },
-  fashion: {
-    categories: [],
-    brands: [],
-    sizes: ["S", "M", "L", "XL", "XXL"],
-    colors: ["Red", "Black", "White", "Blue", "Pink"],
-    showSize: true,
-    showColor: true,
-    showBrand: false,
-    showCategory: false,
-  },
-  tech: {
-    categories: ["Gaming Cooler", "Headphone", "Smart Watch"],
-    brands: ["Sony", "Logitech", "Generic"],
-    showSize: false,
-    showColor: false,
-    showBrand: true,
-    showCategory: true,
-  },
+  beauty: { showSize: false, showColor: false, showBrand: true, showCategory: true },
+  fashion: { showSize: true, showColor: true, showBrand: false, showCategory: false },
+  tech: { showSize: false, showColor: false, showBrand: true, showCategory: true },
 };
-
-function nestCategories(flat) {
-  const byId = new Map(flat.map((c) => [c._id, { ...c, children: [] }]));
-  const roots = [];
-  for (const node of byId.values()) {
-    const parentId = node.parentCategory ? String(node.parentCategory) : null;
-    if (parentId && byId.has(parentId)) byId.get(parentId).children.push(node);
-    else roots.push(node);
-  }
-  return roots;
-}
 
 /* ------------------------------------------------------------------ */
 /* Page                                                                */
@@ -94,7 +60,15 @@ function ShopContent() {
   const [products, setProducts] = useState(null);
   const [count, setCount] = useState(0);
   const [dbNotConfigured, setDbNotConfigured] = useState(false);
-  const [categories, setCategories] = useState([]);
+  
+  // ডাইনামিক ফিল্টার অপশন স্টেট
+  const [filterOptions, setFilterOptions] = useState({
+    categories: [],
+    brands: [],
+    sizes: [],
+    colors: [],
+  });
+
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // ---- URL is source of truth ----
@@ -138,8 +112,23 @@ function ShopContent() {
         if (!res.ok) throw new Error(`Request failed with status ${res.status}`);
 
         setDbNotConfigured(false);
-        setProducts(data?.products ?? []);
+        const fetchedProducts = data?.products ?? [];
+        setProducts(fetchedProducts);
         setCount(data?.count ?? 0);
+
+        // 🌟 ডাইনামিক ফিল্টার লজিক: প্রোডাক্ট থেকে ইউনিক ভ্যালু বের করা
+        const dynamicCats = [...new Set(fetchedProducts.map(p => p.category).filter(Boolean))];
+        const dynamicBrands = [...new Set(fetchedProducts.map(p => p.brand).filter(Boolean))];
+        const dynamicSizes = [...new Set(fetchedProducts.flatMap(p => p.sizes || []).filter(Boolean))];
+        const dynamicColors = [...new Set(fetchedProducts.flatMap(p => p.colors || []).filter(Boolean))];
+
+        setFilterOptions({
+          categories: dynamicCats.length > 0 ? dynamicCats : ["Skincare", "Makeup", "Haircare", "T-Shirt", "Saree", "Gaming Cooler"], // Fallback
+          brands: dynamicBrands,
+          sizes: dynamicSizes,
+          colors: dynamicColors,
+        });
+
       } catch (error) {
         console.error("Failed to fetch products:", error);
         setProducts([]);
@@ -172,23 +161,6 @@ function ShopContent() {
     search,
     loadProducts,
   ]);
-
-  // Load DB categories once (optional fallback)
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/categories");
-        const data = await res.json().catch(() => null);
-        if (!cancelled && data?.success) setCategories(data.categories || []);
-      } catch {
-        /* ignore */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   /** Update URL query — triggers fetch */
   const updateFilters = (next) => {
@@ -299,14 +271,14 @@ function ShopContent() {
         />
       </div>
 
-      {/* Category — beauty & tech */}
-      {cfg.showCategory && cfg.categories.length > 0 && (
+      {/* Category — dynamic */}
+      {cfg.showCategory && filterOptions.categories.length > 0 && (
         <div>
           <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-700">
             🏷️ ক্যাটাগরি
           </h3>
           <div className="space-y-1">
-            {cfg.categories.map((cat) => {
+            {filterOptions.categories.map((cat) => {
               const active = selectedCategories.includes(cat);
               return (
                 <label
@@ -331,14 +303,14 @@ function ShopContent() {
         </div>
       )}
 
-      {/* Brand — beauty & tech */}
-      {cfg.showBrand && cfg.brands.length > 0 && (
+      {/* Brand — dynamic */}
+      {cfg.showBrand && filterOptions.brands.length > 0 && (
         <div>
           <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-700">
             ✨ ব্র্যান্ড
           </h3>
           <div className="space-y-1">
-            {cfg.brands.map((b) => {
+            {filterOptions.brands.map((b) => {
               const active = selectedBrands.includes(b);
               return (
                 <label
@@ -361,14 +333,14 @@ function ShopContent() {
         </div>
       )}
 
-      {/* Size — fashion only */}
-      {cfg.showSize && cfg.sizes?.length > 0 && (
+      {/* Size — dynamic (Fashion only) */}
+      {cfg.showSize && filterOptions.sizes.length > 0 && (
         <div>
           <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-700">
             📏 সাইজ
           </h3>
           <div className="flex flex-wrap gap-2">
-            {cfg.sizes.map((s) => {
+            {filterOptions.sizes.map((s) => {
               const active = selectedSizes.includes(s);
               return (
                 <button
@@ -389,21 +361,19 @@ function ShopContent() {
         </div>
       )}
 
-      {/* Color — fashion only */}
-      {cfg.showColor && cfg.colors?.length > 0 && (
+      {/* Color — dynamic (Fashion only) */}
+      {cfg.showColor && filterOptions.colors.length > 0 && (
         <div>
           <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-700">
             🎨 কালার
           </h3>
           <div className="flex flex-wrap gap-2">
-            {cfg.colors.map((c) => {
+            {filterOptions.colors.map((c) => {
               const active = selectedColors.includes(c);
+              // Simple color mapping for UI dots
               const colorMap = {
-                Red: "#ef4444",
-                Black: "#171717",
-                White: "#f5f5f5",
-                Blue: "#3b82f6",
-                Pink: "#ec4899",
+                Red: "#ef4444", Black: "#171717", White: "#f5f5f5", 
+                Blue: "#3b82f6", Pink: "#ec4899", Green: "#22c55e", Purple: "#a855f7"
               };
               return (
                 <button
