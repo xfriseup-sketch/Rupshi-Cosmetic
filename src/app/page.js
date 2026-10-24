@@ -12,6 +12,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { getHomePageData } from "@/lib/homeData";
+import CopyCodeButton from "@/components/CopyCodeButton";
 
 /* Force dynamic — never cache homepage so Admin changes show immediately */
 export const dynamic = "force-dynamic";
@@ -213,15 +214,30 @@ function EmptyState({ message }) {
 
 export default async function Home() {
   // Direct MongoDB queries — no HTTP self-fetch (was silently failing on Vercel)
-  const { settings, categories, bestSellers: rawBest, hotOffers: rawHot, newArrivals: rawNew } =
-    await getHomePageData();
+  const {
+    settings,
+    categories,
+    hotOffers: rawHot,
+    newArrivals: rawNew,
+    fashionProducts: rawFashion,
+    techProducts: rawTech,
+    featuredCoupon,
+  } = await getHomePageData();
 
-  const bestSellers = rawBest.map(toCardProduct);
   const hotOffers = rawHot.map(toCardProduct);
   const newArrivals = rawNew.map(toCardProduct);
+  const fashionProducts = rawFashion.map(toCardProduct);
+  const techProducts = rawTech.map(toCardProduct);
 
   const notice = settings.noticeBar;
-  const promo = settings.promoBanner;
+  const topBanner = settings.promotionalBanner;
+  const offer = settings.promoBanner;
+  const couponLabel =
+    featuredCoupon?.discountType === "percentage" && featuredCoupon.value != null
+      ? `${featuredCoupon.value}% ছাড়`
+      : featuredCoupon?.discountType === "fixed" && featuredCoupon.value != null
+        ? `${formatBDT(featuredCoupon.value)} ছাড়`
+        : "";
 
   return (
     <div className="min-h-screen bg-[#fdf8f9] text-slate-800">
@@ -308,6 +324,43 @@ export default async function Home() {
         </div>
       </section>
 
+
+      {topBanner?.isActive && (
+        <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-rose-900 via-rose-800 to-amber-900">
+            <div className="grid items-center gap-8 p-8 sm:p-12 lg:grid-cols-2">
+              <div className="text-center lg:text-left">
+                <h2 className="font-serif text-3xl font-bold text-white sm:text-4xl lg:text-5xl">
+                  {topBanner.title}
+                </h2>
+                {topBanner.subtitle && (
+                  <p className="mt-4 max-w-md text-base text-rose-100">{topBanner.subtitle}</p>
+                )}
+                {topBanner.buttonText && (
+                  <Link
+                    href={topBanner.buttonLink || "/shop"}
+                    className="mt-8 inline-flex items-center justify-center rounded-full bg-white px-8 py-3.5 text-sm font-semibold text-rose-700 shadow-lg transition-all hover:scale-105 hover:bg-rose-50"
+                  >
+                    {topBanner.buttonText}
+                  </Link>
+                )}
+              </div>
+              {topBanner.imageUrl && (
+                <div className="relative mx-auto h-56 w-full max-w-sm overflow-hidden rounded-2xl lg:h-64">
+                  <Image
+                    src={topBanner.imageUrl}
+                    alt={topBanner.title || "Promotional banner"}
+                    width={480}
+                    height={320}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Categories — only isHomeVisible mains from DB */}
       {settings.categoriesSection?.isVisible !== false && (
         <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:py-20">
@@ -346,23 +399,41 @@ export default async function Home() {
         </section>
       )}
 
-      {/* Best Sellers — isFeatured === true */}
-      {settings.bestSellersSection?.isVisible !== false && (
+
+      {settings.fashionSection?.isVisible !== false && (
         <section className="bg-white py-16 lg:py-20">
           <div className="mx-auto max-w-7xl px-4 sm:px-6">
             <div className="mb-10 flex items-end justify-between">
-              <h2 className="font-serif text-3xl font-bold text-slate-900 sm:text-4xl">
-                Best Sellers
-              </h2>
-              <Link href="/shop" className="hidden text-sm font-semibold text-rose-600 hover:underline sm:block">
-                View all →
+              <h2 className="font-serif text-3xl font-bold text-slate-900 sm:text-4xl">ফ্যাশন কালেকশন</h2>
+              <Link href="/shop?dept=fashion" className="text-sm font-semibold text-rose-600 hover:underline">
+                সব দেখো
               </Link>
             </div>
             <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
-              {bestSellers.length === 0 ? (
-                <EmptyState message="No featured products yet. Mark products as Featured in Admin → Products." />
+              {fashionProducts.length === 0 ? (
+                <EmptyState message="ফ্যাশন বিভাগে এখনো কোনো প্রোডাক্ট নেই।" />
               ) : (
-                bestSellers.map((p) => <ProductCard key={p.id} product={p} />)
+                fashionProducts.map((product) => <ProductCard key={product.id} product={product} />)
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {settings.techSection?.isVisible !== false && (
+        <section className="bg-[#fdf8f9] py-16 lg:py-20">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6">
+            <div className="mb-10 flex items-end justify-between">
+              <h2 className="font-serif text-3xl font-bold text-slate-900 sm:text-4xl">টেক কালেকশন</h2>
+              <Link href="/shop?dept=tech" className="text-sm font-semibold text-rose-600 hover:underline">
+                সব দেখো
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
+              {techProducts.length === 0 ? (
+                <EmptyState message="টেক বিভাগে এখনো কোনো প্রোডাক্ট নেই।" />
+              ) : (
+                techProducts.map((product) => <ProductCard key={product.id} product={product} />)
               )}
             </div>
           </div>
@@ -392,30 +463,44 @@ export default async function Home() {
         </section>
       )}
 
-      {/* Promo Banner — from SiteSettings.promoBanner */}
-      {promo?.isActive && (
+      {offer?.isActive && (
         <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-rose-900 via-rose-800 to-amber-900">
+          <div className="overflow-hidden rounded-3xl bg-gradient-to-r from-rose-900 via-rose-800 to-amber-900">
             <div className="grid items-center gap-8 p-8 sm:p-12 lg:grid-cols-2">
               <div className="text-center lg:text-left">
-                <h2 className="font-serif text-3xl font-bold text-white sm:text-4xl lg:text-5xl">
-                  {promo.title}
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-rose-200">অফার</p>
+                <h2 className="mt-2 font-serif text-3xl font-bold text-white sm:text-4xl">
+                  {offer.title}
                 </h2>
-                <p className="mt-4 max-w-md text-base text-rose-100">{promo.subtitle}</p>
-                <Link
-                  href={promo.buttonLink || "/shop"}
-                  className="mt-8 inline-flex items-center justify-center rounded-full bg-white px-8 py-3.5 text-sm font-semibold text-rose-700 shadow-lg transition-all hover:scale-105 hover:bg-rose-50"
-                >
-                  {promo.buttonText}
-                </Link>
+                {offer.subtitle && (
+                  <p className="mt-4 max-w-md text-base text-rose-100">{offer.subtitle}</p>
+                )}
+                {featuredCoupon?.code && (
+                  <div className="mt-6 inline-flex flex-wrap items-center gap-3 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-left">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-widest text-rose-100">প্রোমো কোড</p>
+                      <p className="font-mono text-xl font-bold text-white">{featuredCoupon.code}</p>
+                      {couponLabel && <p className="text-xs text-rose-100">{couponLabel}</p>}
+                    </div>
+                    <CopyCodeButton code={featuredCoupon.code} />
+                  </div>
+                )}
+                {offer.buttonText && (
+                  <Link
+                    href={offer.buttonLink || "/shop"}
+                    className="mt-8 inline-flex items-center justify-center rounded-full bg-white px-8 py-3.5 text-sm font-semibold text-rose-700 shadow-lg transition-all hover:scale-105 hover:bg-rose-50"
+                  >
+                    {offer.buttonText}
+                  </Link>
+                )}
               </div>
-              {promo.imageUrl && (
-                <div className="relative mx-auto hidden h-56 w-full max-w-sm overflow-hidden rounded-2xl lg:block">
+              {offer.imageUrl && (
+                <div className="relative mx-auto h-56 w-full max-w-sm overflow-hidden rounded-2xl lg:block">
                   <Image
-                    src={promo.imageUrl}
-                    alt="Promo"
-                    width={400}
-                    height={300}
+                    src={offer.imageUrl}
+                    alt={offer.title || "Offer"}
+                    width={480}
+                    height={320}
                     className="h-full w-full object-cover"
                   />
                 </div>

@@ -39,17 +39,27 @@ const DEFAULTS = {
     bgColor: "#e11d48",
   },
   heroSection: { isVisible: true },
+  promotionalBanner: {
+    title: "নতুন কালেকশন এখন লাইভ",
+    subtitle: "Beauty, Fashion ও Tech — এক জায়গায় বেছে নিন।",
+    buttonText: "শপ করুন",
+    buttonLink: "/shop",
+    imageUrl: "",
+    isActive: true,
+  },
   categoriesSection: { isVisible: true, maxItems: 4 },
   bestSellersSection: { isVisible: true, maxItems: 4 },
   hotOffersSection: { isVisible: true, maxItems: 3 },
+  fashionSection: { isVisible: true, maxItems: 4 },
+  techSection: { isVisible: true, maxItems: 4 },
   promoBanner: {
     title: "Get Up to 35% OFF",
     subtitle:
       "Limited-time luxury deals on premium skincare & makeup. Glow starts now.",
     buttonText: "Claim Deal Now",
     buttonLink: "/shop?hotOffer=true",
-    imageUrl:
-      "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&h=600&fit=crop",
+    imageUrl: "",
+    couponCode: "",
     isActive: true,
   },
   newArrivalsSection: { isVisible: true, maxItems: 4 },
@@ -221,6 +231,18 @@ export default function HomepageSettings() {
             description="Explore Categories grid"
           />
           <ToggleSwitch
+            checked={settings.fashionSection?.isVisible ?? true}
+            onChange={(v) => update("fashionSection", "isVisible", v)}
+            label="Fashion Collection"
+            description="Latest fashion products"
+          />
+          <ToggleSwitch
+            checked={settings.techSection?.isVisible ?? true}
+            onChange={(v) => update("techSection", "isVisible", v)}
+            label="Tech Collection"
+            description="Latest tech products"
+          />
+          <ToggleSwitch
             checked={settings.bestSellersSection?.isVisible ?? true}
             onChange={(v) => update("bestSellersSection", "isVisible", v)}
             label="Best Sellers"
@@ -261,7 +283,8 @@ export default function HomepageSettings() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { key: "categoriesSection", label: "Categories" },
-            { key: "bestSellersSection", label: "Best Sellers" },
+            { key: "fashionSection", label: "Fashion" },
+            { key: "techSection", label: "Tech" },
             { key: "hotOffersSection", label: "Hot Offers" },
             { key: "newArrivalsSection", label: "New Arrivals" },
           ].map(({ key, label }) => (
@@ -292,7 +315,66 @@ export default function HomepageSettings() {
         <div className="mb-4 flex items-center justify-between">
           <h3 className="flex items-center gap-2 text-base font-bold text-gray-800">
             <Gift size={18} className="text-pink-600" />
-            Promo Banner
+            Promotional Banner
+          </h3>
+          <ToggleSwitch
+            checked={settings.promotionalBanner?.isActive ?? true}
+            onChange={(v) => update("promotionalBanner", "isActive", v)}
+            label="Active"
+          />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Title</label>
+            <input
+              type="text"
+              value={settings.promotionalBanner?.title || ""}
+              onChange={(e) => update("promotionalBanner", "title", e.target.value)}
+              className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Button Text</label>
+            <input
+              type="text"
+              value={settings.promotionalBanner?.buttonText || ""}
+              onChange={(e) => update("promotionalBanner", "buttonText", e.target.value)}
+              className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-sm font-medium text-gray-700">Subtitle</label>
+            <textarea
+              rows={2}
+              value={settings.promotionalBanner?.subtitle || ""}
+              onChange={(e) => update("promotionalBanner", "subtitle", e.target.value)}
+              className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Button Link</label>
+            <input
+              type="text"
+              value={settings.promotionalBanner?.buttonLink || ""}
+              onChange={(e) => update("promotionalBanner", "buttonLink", e.target.value)}
+              placeholder="/shop"
+              className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <ImageUploadField
+              value={settings.promotionalBanner?.imageUrl || ""}
+              onChange={(url) => update("promotionalBanner", "imageUrl", url)}
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-pink-100 bg-white p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-base font-bold text-gray-800">
+            <Gift size={18} className="text-pink-600" />
+            Offer + Promo Code
           </h3>
           <ToggleSwitch
             checked={settings.promoBanner?.isActive ?? true}
@@ -337,6 +419,19 @@ export default function HomepageSettings() {
               placeholder="/shop?hotOffer=true"
               className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
             />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Promo Code</label>
+            <input
+              type="text"
+              value={settings.promoBanner?.couponCode || ""}
+              onChange={(e) => update("promoBanner", "couponCode", e.target.value.toUpperCase())}
+              placeholder="Empty = latest active coupon"
+              className="w-full rounded-lg border border-pink-200 px-3 py-2 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-pink-500"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Leave blank to use the newest active coupon from Admin → Coupons.
+            </p>
           </div>
           <div className="sm:col-span-2">
             <ImageUploadField

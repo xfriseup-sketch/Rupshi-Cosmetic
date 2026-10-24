@@ -76,9 +76,12 @@ export async function PUT(request) {
     const allowed = [
       "noticeBar",
       "heroSection",
+      "promotionalBanner",
       "categoriesSection",
       "bestSellersSection",
       "hotOffersSection",
+      "fashionSection",
+      "techSection",
       "promoBanner",
       "newArrivalsSection",
       "reviewsSection",
