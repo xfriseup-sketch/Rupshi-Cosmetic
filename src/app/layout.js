@@ -13,6 +13,9 @@ export const metadata = {
   title: "রূপসী কসমেটিক্স | Rupshi Cosmetics",
   description:
     "আপনার সৌন্দর্যের যত্নে বিশ্বস্ত নাম। স্কিনকেয়ার, মেকআপ ও হেয়ারকেয়ারের সেরা কালেকশন।",
+  verification: {
+    google: "GbC4iQo_pxMJ6fUDW5BO4nwUFo9y4zXr_uWH-_JREw0",
+  },
 };
 
 export default function RootLayout({ children }) {
