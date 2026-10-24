@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+export const CATEGORY_DEPARTMENTS = ["beauty", "fashion", "tech"];
+
 const CategorySchema = new mongoose.Schema(
   {
     name: {
@@ -12,26 +14,20 @@ const CategorySchema = new mongoose.Schema(
       required: [true, "Slug is required"],
       lowercase: true,
       trim: true,
-      match: [
-        /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
-        "Slug must be lowercase letters, numbers and dashes",
-      ],
+      match: [/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must be lowercase letters, numbers and dashes"],
+    },
+    department: {
+      type: String,
+      enum: CATEGORY_DEPARTMENTS,
+      default: "beauty",
+      index: true,
     },
     icon: {
       type: String,
       trim: true,
       default: "",
     },
-    // Which shop tab this category belongs to
-    department: {
-      type: String,
-      enum: ["beauty", "fashion", "tech"],
-      required: [true, "Department is required"],
-      default: "beauty",
-      index: true,
-    },
     parentCategory: {
-      // null = main category; ObjectId = sub-category
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
       default: null,
@@ -48,7 +44,6 @@ const CategorySchema = new mongoose.Schema(
   { collection: "categories" }
 );
 
-// Same name/slug allowed in different departments
 CategorySchema.index({ name: 1, department: 1 }, { unique: true });
 CategorySchema.index({ slug: 1, department: 1 }, { unique: true });
 
@@ -56,7 +51,11 @@ let Category = mongoose.models.Category;
 
 if (!Category) {
   Category = mongoose.model("Category", CategorySchema);
-} else {
+} else if (
+  !Category.schema.paths.parentCategory ||
+  !Category.schema.paths.isHomeVisible ||
+  !Category.schema.paths.department
+) {
   const additions = {};
   if (!Category.schema.paths.parentCategory) {
     additions.parentCategory = {
@@ -71,12 +70,12 @@ if (!Category) {
   if (!Category.schema.paths.department) {
     additions.department = {
       type: String,
-      enum: ["beauty", "fashion", "tech"],
+      enum: CATEGORY_DEPARTMENTS,
       default: "beauty",
       index: true,
     };
   }
-  if (Object.keys(additions).length) Category.schema.add(additions);
+  Category.schema.add(additions);
 }
 
 export default Category;

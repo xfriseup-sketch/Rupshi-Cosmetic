@@ -232,7 +232,18 @@ export async function GET(request) {
 
     let limit = parseInt(sp.get("limit") || "0", 10);
     if (!Number.isFinite(limit) || limit <= 0) limit = 200;
-    limit = Math.min(limit, 50);
+    limit = Math.min(limit, 200);
+
+    const listParam = (key) =>
+      (sp.get(key) || "").split(",").map((item) => item.trim()).filter(Boolean);
+
+    const sizes = listParam("size");
+    if (sizes.length === 1) filter.sizes = sizes[0];
+    else if (sizes.length > 1) filter.sizes = { $in: sizes };
+
+    const colors = listParam("color");
+    if (colors.length === 1) filter.colors = colors[0];
+    else if (colors.length > 1) filter.colors = { $in: colors };
 
     // ---- brand (comma-separated list supported) ----
     const brandParam = sp.get("brand");
@@ -261,24 +272,24 @@ export async function GET(request) {
     // ---- category slug/name → include sub-categories too ----
     const categoryParam = sp.get("category");
     if (categoryParam) {
-      const catDoc = await Category.findOne({
-        $or: [
-          { slug: categoryParam.toLowerCase() },
-          { name: categoryParam },
-        ],
-      }).lean();
-
-      if (catDoc) {
-        // A real category document: match it + any children (sub-categories)
-        const children = await Category.find({ parentCategory: catDoc._id })
-          .select("name")
-          .lean();
-        const names = [catDoc.name, ...children.map((c) => c.name)];
-        filter.category = { $in: names };
-      } else {
-        // Fall back to plain name match (legacy data / default categories)
-        filter.category = categoryParam;
+      const parts = categoryParam.split(",").map((item) => item.trim()).filter(Boolean);
+      const names = new Set();
+      for (const part of parts) {
+        const catQuery = {
+          $or: [{ slug: part.toLowerCase() }, { name: part }],
+        };
+        if (dept) catQuery.department = dept;
+        const catDoc = await Category.findOne(catQuery).lean();
+        if (catDoc) {
+          names.add(catDoc.name);
+          const children = await Category.find({ parentCategory: catDoc._id }).select("name").lean();
+          children.forEach((child) => names.add(child.name));
+        } else {
+          names.add(part);
+        }
       }
+      const list = [...names];
+      filter.category = list.length === 1 ? list[0] : { $in: list };
     }
 
     // ---- sorting ----

@@ -1,13 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Tags, Pencil, Trash2, Plus, Folder } from "lucide-react";
-
-const DEPARTMENTS = [
-  { id: "beauty", label: "Beauty" },
-  { id: "fashion", label: "Fashion" },
-  { id: "tech", label: "Tech" },
-];
+import { Pencil, Trash2, Plus } from "lucide-react";
 
 function Toggle({ checked, onChange, label }) {
   return (
@@ -32,10 +26,16 @@ function Toggle({ checked, onChange, label }) {
   );
 }
 
+const DEPARTMENTS = [
+  { value: "beauty", label: "Beauty" },
+  { value: "fashion", label: "Fashion" },
+  { value: "tech", label: "Tech" },
+];
+
 const emptyForm = {
+  department: "beauty",
   name: "",
   slug: "",
-  department: "beauty",
   parentCategory: "",
   isHomeVisible: false,
   icon: "",
@@ -58,10 +58,6 @@ function buildDisplayOrder(categories) {
     .filter((c) => !out.some((o) => o.cat._id === c._id))
     .forEach((c) => visit(c, 0));
   return out;
-}
-
-function deptLabel(id) {
-  return DEPARTMENTS.find((d) => d.id === id)?.label || id || "Beauty";
 }
 
 export default function CategoryManager() {
@@ -99,14 +95,7 @@ export default function CategoryManager() {
       const res = await fetch("/api/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name,
-          slug: form.slug,
-          department: form.department || "beauty",
-          parentCategory: form.parentCategory || null,
-          isHomeVisible: form.isHomeVisible,
-          icon: "",
-        }),
+        body: JSON.stringify({ ...form, icon: "" }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -114,10 +103,7 @@ export default function CategoryManager() {
         setMessage({ type: "success", text: data.message || "Category created" });
         fetchCategories();
       } else {
-        setMessage({
-          type: "error",
-          text: data.message || "Could not create category",
-        });
+        setMessage({ type: "error", text: data.message || "Could not create category" });
       }
     } catch {
       setMessage({ type: "error", text: "Network error" });
@@ -129,9 +115,9 @@ export default function CategoryManager() {
   const startEdit = (cat) => {
     setEditingId(cat._id);
     setEditForm({
+      department: cat.department || "beauty",
       name: cat.name,
       slug: cat.slug || "",
-      department: cat.department || "beauty",
       parentCategory: cat.parentCategory ? String(cat.parentCategory) : "",
       isHomeVisible: Boolean(cat.isHomeVisible),
       icon: "",
@@ -148,14 +134,7 @@ export default function CategoryManager() {
       const res = await fetch(`/api/categories/${editingId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: editForm.name,
-          slug: editForm.slug,
-          department: editForm.department || "beauty",
-          parentCategory: editForm.parentCategory || null,
-          isHomeVisible: editForm.isHomeVisible,
-          icon: "",
-        }),
+        body: JSON.stringify({ ...editForm, icon: "" }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -187,9 +166,7 @@ export default function CategoryManager() {
       } else {
         setMessage({
           type: "error",
-          text:
-            data.message ||
-            "Could not delete (may have products or sub-categories)",
+          text: data.message || "Could not delete (may have products or sub-categories)",
         });
       }
     } catch {
@@ -203,16 +180,11 @@ export default function CategoryManager() {
   const inputClass =
     "w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-400/30";
 
-  // Parents only from same department as the form
-  const mainCategoriesForForm = categories.filter(
-    (c) => !c.parentCategory && (c.department || "beauty") === form.department
-  );
-  const editableParents = categories.filter(
-    (c) =>
-      !c.parentCategory &&
-      c._id !== editingId &&
-      (c.department || "beauty") === editForm.department
-  );
+  const mainCategories = categories.filter((c) => !c.parentCategory);
+  const parentsFor = (department, excludeId) =>
+    mainCategories.filter(
+      (c) => (c.department || "beauty") === department && c._id !== excludeId
+    );
   const displayRows = buildDisplayOrder(categories);
 
   if (loading) {
@@ -246,35 +218,24 @@ export default function CategoryManager() {
         onSubmit={handleCreate}
         className="grid grid-cols-1 gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:grid-cols-12"
       >
-        {/* Department — FIRST */}
         <div className="sm:col-span-2">
-          <label className="mb-1 block text-xs font-medium text-gray-600">
-            Department *
-          </label>
+          <label className="mb-1 block text-xs font-medium text-gray-600">Department *</label>
           <select
-            required
             value={form.department}
             onChange={(e) =>
-              setForm((p) => ({
-                ...p,
-                department: e.target.value,
-                parentCategory: "",
-              }))
+              setForm((prev) => ({ ...prev, department: e.target.value, parentCategory: "" }))
             }
             className={`${inputClass} bg-white`}
           >
-            {DEPARTMENTS.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.label}
+            {DEPARTMENTS.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
               </option>
             ))}
           </select>
         </div>
-
         <div className="sm:col-span-3">
-          <label className="mb-1 block text-xs font-medium text-gray-600">
-            Name *
-          </label>
+          <label className="mb-1 block text-xs font-medium text-gray-600">Name *</label>
           <input
             required
             value={form.name}
@@ -283,11 +244,8 @@ export default function CategoryManager() {
             className={inputClass}
           />
         </div>
-
         <div className="sm:col-span-3">
-          <label className="mb-1 block text-xs font-medium text-gray-600">
-            Parent (same dept)
-          </label>
+          <label className="mb-1 block text-xs font-medium text-gray-600">Parent</label>
           <select
             value={form.parentCategory}
             onChange={(e) => {
@@ -301,18 +259,15 @@ export default function CategoryManager() {
             className={`${inputClass} bg-white`}
           >
             <option value="">None (main category)</option>
-            {mainCategoriesForForm.map((c) => (
+            {parentsFor(form.department).map((c) => (
               <option key={c._id} value={c._id}>
                 {c.name}
               </option>
             ))}
           </select>
         </div>
-
         <div className="sm:col-span-2">
-          <label className="mb-1 block text-xs font-medium text-gray-600">
-            Slug
-          </label>
+          <label className="mb-1 block text-xs font-medium text-gray-600">Slug</label>
           <input
             dir="ltr"
             value={form.slug}
@@ -321,15 +276,13 @@ export default function CategoryManager() {
             className={inputClass}
           />
         </div>
-
-        <div className="flex items-end pb-1 sm:col-span-1">
+        <div className="flex items-end pb-1 sm:col-span-2">
           <Toggle
             checked={form.isHomeVisible && !form.parentCategory}
             onChange={(v) => setForm((p) => ({ ...p, isHomeVisible: v }))}
-            label="Home"
+            label="Show on home"
           />
         </div>
-
         <div className="flex items-end sm:col-span-1">
           <button
             type="submit"
@@ -352,8 +305,8 @@ export default function CategoryManager() {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-slate-50 text-slate-500">
-                <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Department</th>
+                <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Slug</th>
                 <th className="px-4 py-3 font-medium">Parent</th>
                 <th className="px-4 py-3 font-medium">Home</th>
@@ -370,32 +323,27 @@ export default function CategoryManager() {
                         className="grid grid-cols-1 items-end gap-2 sm:grid-cols-12"
                       >
                         <div className="sm:col-span-2">
-                          <label className="mb-0.5 block text-xs text-gray-500">
-                            Department *
-                          </label>
+                          <label className="mb-0.5 block text-xs text-gray-500">Department *</label>
                           <select
-                            required
-                            value={editForm.department}
+                            value={editForm.department || "beauty"}
                             onChange={(e) =>
-                              setEditForm((p) => ({
-                                ...p,
+                              setEditForm((prev) => ({
+                                ...prev,
                                 department: e.target.value,
                                 parentCategory: "",
                               }))
                             }
                             className={`${inputClass} bg-white`}
                           >
-                            {DEPARTMENTS.map((d) => (
-                              <option key={d.id} value={d.id}>
-                                {d.label}
+                            {DEPARTMENTS.map((item) => (
+                              <option key={item.value} value={item.value}>
+                                {item.label}
                               </option>
                             ))}
                           </select>
                         </div>
-                        <div className="sm:col-span-3">
-                          <label className="mb-0.5 block text-xs text-gray-500">
-                            Name *
-                          </label>
+                        <div className="sm:col-span-2">
+                          <label className="mb-0.5 block text-xs text-gray-500">Name *</label>
                           <input
                             required
                             value={editForm.name}
@@ -405,10 +353,8 @@ export default function CategoryManager() {
                             className={inputClass}
                           />
                         </div>
-                        <div className="sm:col-span-2">
-                          <label className="mb-0.5 block text-xs text-gray-500">
-                            Parent
-                          </label>
+                        <div className="sm:col-span-3">
+                          <label className="mb-0.5 block text-xs text-gray-500">Parent</label>
                           <select
                             value={editForm.parentCategory}
                             onChange={(e) => {
@@ -422,7 +368,7 @@ export default function CategoryManager() {
                             className={`${inputClass} bg-white`}
                           >
                             <option value="">None (main)</option>
-                            {editableParents.map((c) => (
+                            {parentsFor(editForm.department || "beauty", editingId).map((c) => (
                               <option key={c._id} value={c._id}>
                                 {c.name}
                               </option>
@@ -430,9 +376,7 @@ export default function CategoryManager() {
                           </select>
                         </div>
                         <div className="sm:col-span-2">
-                          <label className="mb-0.5 block text-xs text-gray-500">
-                            Slug
-                          </label>
+                          <label className="mb-0.5 block text-xs text-gray-500">Slug</label>
                           <input
                             dir="ltr"
                             value={editForm.slug}
@@ -442,11 +386,9 @@ export default function CategoryManager() {
                             className={inputClass}
                           />
                         </div>
-                        <div className="flex items-end pb-1 sm:col-span-1">
+                        <div className="flex items-end pb-1 sm:col-span-2">
                           <Toggle
-                            checked={
-                              editForm.isHomeVisible && !editForm.parentCategory
-                            }
+                            checked={editForm.isHomeVisible && !editForm.parentCategory}
                             onChange={(v) =>
                               setEditForm((p) => ({ ...p, isHomeVisible: v }))
                             }
@@ -473,37 +415,22 @@ export default function CategoryManager() {
                     </td>
                   </tr>
                 ) : (
-                  <tr
-                    key={cat._id}
-                    className="border-b border-gray-50 hover:bg-slate-50/50"
-                  >
+                  <tr key={cat._id} className="border-b border-gray-50 hover:bg-slate-50/50">
+                    <td className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      {cat.department || "beauty"}
+                    </td>
                     <td
                       className="px-4 py-3 font-medium text-slate-800"
                       style={{ paddingInlineStart: `${1 + depth * 1.25}rem` }}
                     >
-                      <span className="inline-flex items-center gap-2">
-                        {depth > 0 ? (
-                          <Tags size={14} className="text-slate-300" />
-                        ) : (
-                          <Folder size={14} className="text-pink-500" />
-                        )}
-                        {cat.name}
-                      </span>
+                      {cat.name}
                     </td>
-                    <td className="px-4 py-3">
-                      <span className="rounded-full bg-pink-50 px-2 py-0.5 text-xs font-medium text-pink-700">
-                        {deptLabel(cat.department)}
-                      </span>
-                    </td>
-                    <td
-                      className="px-4 py-3 font-mono text-xs text-slate-500"
-                      dir="ltr"
-                    >
+                    <td className="px-4 py-3 font-mono text-xs text-slate-500" dir="ltr">
                       {cat.slug}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-600">
                       {depth > 0
-                        ? categories.find(
+                        ? mainCategories.find(
                             (m) => m._id === String(cat.parentCategory)
                           )?.name || "—"
                         : "—"}
@@ -550,8 +477,7 @@ export default function CategoryManager() {
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
             <h3 className="text-lg font-bold text-slate-800">Delete category?</h3>
             <p className="mt-2 text-sm text-slate-600">
-              Delete &quot;{deleting.name}&quot;? Categories with products or
-              sub-categories cannot be deleted.
+              Delete "{deleting.name}"? Categories with products or sub-categories cannot be deleted.
             </p>
             <div className="mt-6 flex justify-end gap-2">
               <button

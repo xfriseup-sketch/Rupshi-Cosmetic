@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/mongodb";
 import { dbNotConfiguredResponse } from "@/lib/dbStatus";
-import Category, { generateSlug } from "@/models/Category";
+import Category, { generateSlug, CATEGORY_DEPARTMENTS } from "@/models/Category";
+
+function cleanIcon(value) {
+  const icon = String(value || "").trim();
+  return icon === "folder" ? "" : icon;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +15,9 @@ function serialize(category) {
   return {
     ...category,
     _id: category._id.toString(),
+    department: category.department || "beauty",
+    icon: cleanIcon(category.icon),
+    parentCategory: category.parentCategory ? category.parentCategory.toString() : null,
     createdAt: category.createdAt ? category.createdAt.toISOString() : null,
   };
 }
@@ -29,13 +37,19 @@ export async function PUT(request, context) {
     }
 
     const body = await request.json().catch(() => null);
+    const conn = await dbConnect();
+    if (!conn) return dbNotConfiguredResponse();
 
     const name = (body?.name || "").trim();
-    const icon = (body?.icon || "").trim() || "folder";
+    const icon = cleanIcon(body?.icon);
     let slug = (body?.slug || "").trim().toLowerCase();
+    const department = String(body?.department || "beauty").trim().toLowerCase();
 
     const errors = {};
     if (!name) errors.name = "Category name is required";
+    if (!CATEGORY_DEPARTMENTS.includes(department)) {
+      errors.department = "Department must be beauty, fashion, or tech";
+    }
     if (!slug) slug = generateSlug(name);
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
       errors.slug = "Slug may only contain lowercase letters, numbers, and dashes";
@@ -55,6 +69,8 @@ export async function PUT(request, context) {
           errors.parentCategory = "Parent category not found";
         } else if (parentDoc.parentCategory) {
           errors.parentCategory = "Cannot nest under a sub-category";
+        } else if ((parentDoc.department || "beauty") !== department) {
+          errors.parentCategory = "Parent category must be in the same department";
         } else {
           parentCategory = parentDoc._id;
         }
@@ -77,25 +93,27 @@ export async function PUT(request, context) {
       );
     }
 
-    const conn = await dbConnect();
-    if (!conn) return dbNotConfiguredResponse();
-
     const duplicate = await Category.findOne({
       _id: { $ne: id },
+      department,
       $or: [{ name }, { slug }],
     }).lean();
     if (duplicate) {
       return NextResponse.json(
-        { success: false, message: "Another category already uses this name or slug" },
+        { success: false, message: "Another category in this department already uses this name or slug" },
         { status: 409 }
       );
     }
 
     const category = await Category.findByIdAndUpdate(
       id,
-      { name, slug, icon, parentCategory, isHomeVisible: finalHomeVisible },
+      { name, slug, icon, department, parentCategory, isHomeVisible: finalHomeVisible },
       { new: true, runValidators: true }
     ).lean();
+
+    if (category) {
+      await Category.updateMany({ parentCategory: id }, { $set: { department } });
+    }
 
     if (!category) {
       return NextResponse.json(
