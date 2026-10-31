@@ -88,7 +88,7 @@ function AdminSidebar({ activeTab }) {
   );
 }
 
-function AdminHeader({ title, onLogout }) {
+function AdminHeader({ title, pathname }) {
   return (
     <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-6">
       <h1 className="text-lg font-semibold text-slate-800">{title}</h1>
@@ -124,16 +124,17 @@ function AdminHeader({ title, onLogout }) {
           </span>
         </div>
 
-        {onLogout && (
-          <button
-            type="button"
-            onClick={onLogout}
-            className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600"
-            aria-label="Logout"
-            title="Logout"
-          >
-            <LogOut size={18} />
-          </button>
+        {pathname === "/admin/login" ? null : (
+          <form action="/api/admin/logout" method="post">
+            <button
+              type="submit"
+              className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600"
+              aria-label="Logout"
+              title="Logout"
+            >
+              <LogOut size={18} />
+            </button>
+          </form>
         )}
       </div>
     </header>
@@ -146,11 +147,15 @@ function AdminLayoutInner({ children }) {
   const tab = searchParams.get("tab") || "products";
   const title = TAB_TITLES[tab] || "Admin";
 
+  if (pathname === "/admin/login") {
+    return <div className="min-h-screen bg-gray-50">{children}</div>;
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       <AdminSidebar activeTab={tab} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <AdminHeader title={title} />
+        <AdminHeader title={title} pathname={pathname} />
         <main className="flex-1 overflow-y-auto p-6 sm:p-8">{children}</main>
       </div>
     </div>
