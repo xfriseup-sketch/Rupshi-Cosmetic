@@ -33,7 +33,7 @@ export default function SupportManager() {
   const [notice, setNotice] = useState(null);
   const [keywords, setKeywords] = useState("");
   const [answer, setAnswer] = useState("");
-  const [editingId, setEditingId] = useState(null);
+  const [editingId, setEditingId] = useState(null);\n  const [ruleActive, setRuleActive] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -135,7 +135,7 @@ export default function SupportManager() {
         {
           method: editingId ? "PUT" : "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ keywords: parsedKeywords, answer: answer.trim() }),
+          body: JSON.stringify({ keywords: parsedKeywords, answer: answer.trim(), isActive: ruleActive }),
         }
       );
       const data = await res.json().catch(() => null);
@@ -243,7 +243,7 @@ export default function SupportManager() {
               <span className="mb-1.5 block text-sm font-medium text-slate-700">Bot answer</span>
               <textarea className={inputClass} rows={6} value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="Write the answer Rupshi Bot should send…" />
             </label>
-            <button type="submit" className={`${buttonPrimary} w-full`} disabled={savingRule}>{savingRule ? <Loader2 size={16} className="animate-spin" /> : editingId ? <Save size={16} /> : <Plus size={16} />}{editingId ? "Update Rule" : "Add Rule"}</button>
+            <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={ruleActive} onChange={(e) => setRuleActive(e.target.checked)} className="h-4 w-4 accent-pink-600" /> Rule is active and available to customers</label>\n            <button type="submit" className={`${buttonPrimary} w-full`} disabled={savingRule}>{savingRule ? <Loader2 size={16} className="animate-spin" /> : editingId ? <Save size={16} /> : <Plus size={16} />}{editingId ? "Update Rule" : "Add Rule"}</button>
           </form>
 
           <section className="space-y-3">
@@ -256,7 +256,7 @@ export default function SupportManager() {
               <article key={rule._id || rule.id} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-pink-600">Keywords</p>
+                    <div className="flex items-center gap-2"><p className="text-xs font-semibold uppercase tracking-wide text-pink-600">Keywords</p><span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${rule.isActive ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>{rule.isActive ? "Active" : "Inactive"}</span></div>
                     <div className="mt-2 flex flex-wrap gap-1.5">{(rule.keywords || []).map((word) => <span key={word} className="rounded-full bg-pink-50 px-2.5 py-1 text-xs font-medium text-pink-700">{word}</span>)}</div>
                     <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Bot answer</p>
                     <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">{rule.answer}</p>
