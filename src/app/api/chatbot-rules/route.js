@@ -46,7 +46,9 @@ export async function GET(request) {
       );
     }
 
-    // Admins can manage active and inactive rules; public visitors only receive active rules.\n    const isAdmin = await isAdminAuthenticated(request);\n    const rules = await ChatbotRule.find(isAdmin ? {} : { isActive: true })
+    // Admins can manage active and inactive rules; public visitors only receive active rules.
+    const isAdmin = await isAdminAuthenticated(request);
+    const rules = await ChatbotRule.find(isAdmin ? {} : { isActive: true })
       .sort({ createdAt: -1 })
       .select("keywords answer isActive createdAt updatedAt")
       .lean();
