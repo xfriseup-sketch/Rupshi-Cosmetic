@@ -10,6 +10,7 @@ import {
   Tags,
   SlidersHorizontal,
   Ticket,
+  MessageCircle,
   Cog,
   ExternalLink,
   Search,
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { id: "categories", label: "Categories", icon: Tags, href: "/admin?tab=categories" },
   { id: "homepage", label: "Homepage Settings", icon: SlidersHorizontal, href: "/admin?tab=homepage" },
   { id: "coupons", label: "Coupons", icon: Ticket, href: "/admin?tab=coupons" },
+  { id: "support", label: "Support & Chatbot", icon: MessageCircle, href: "/admin?tab=support" },
   { id: "settings", label: "Store Settings", icon: Cog, href: "/admin?tab=settings" },
 ];
 
@@ -34,6 +36,7 @@ const TAB_TITLES = {
   categories: "Categories",
   homepage: "Homepage Settings",
   coupons: "Coupons",
+  support: "Support & Chatbot",
   settings: "Store Settings",
 };
 
