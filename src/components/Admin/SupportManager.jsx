@@ -111,12 +111,14 @@ export default function SupportManager() {
     setKeywords("");
     setAnswer("");
     setEditingId(null);
+    setRuleActive(true);
   }
 
   function startEdit(rule) {
     setEditingId(rule._id || rule.id);
     setKeywords((rule.keywords || []).join(", "));
     setAnswer(rule.answer || "");
+    setRuleActive(rule.isActive ?? true);
     setNotice(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
