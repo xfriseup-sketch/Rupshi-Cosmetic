@@ -18,6 +18,9 @@ export const metadata = {
   },
 };
 
+// Tawk.to Widget ID (আপনার দেওয়া কোড থেকে নেওয়া)
+const TAWK_TO_ID = "6ae83742aa99a33c309a20d0/1k6dhfnja";
+
 export default function RootLayout({ children }) {
   return (
     <html lang="bn">
@@ -26,6 +29,23 @@ export default function RootLayout({ children }) {
           <ClientShell>{children}</ClientShell>
           <Toast />
         </CartProvider>
+
+        {/* ✅ Tawk.to Chatbot Script */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+              (function(){
+                var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+                s1.async=true;
+                s1.src='https://embed.tawk.to/${TAWK_TO_ID}/default';
+                s1.charset='UTF-8';
+                s1.setAttribute('crossorigin','*');
+                s0.parentNode.insertBefore(s1,s0);
+              })();
+            `,
+          }}
+        />
       </body>
     </html>
   );
