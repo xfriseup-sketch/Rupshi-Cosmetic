@@ -8,6 +8,7 @@ import OrderManager from "@/components/Admin/OrderManager";
 import CategoryManager from "@/components/Admin/CategoryManager";
 import HomepageSettings from "@/components/Admin/HomepageSettings";
 import CouponManager from "@/components/Admin/CouponManager";
+import SupportManager from "@/components/Admin/SupportManager";
 
 export default function AdminPage() {
   return (
@@ -47,6 +48,7 @@ function AdminPageInner() {
       {tab === "categories" && <CategoryManager />}
       {tab === "homepage" && <HomepageSettings />}
       {tab === "coupons" && <CouponManager />}
+      {tab === "support" && <SupportManager />}
       {tab === "settings" && <ComingSoon title="Store Settings" icon={Cog} />}
     </div>
   );
