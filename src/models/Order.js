@@ -73,9 +73,8 @@ const OrderSchema = new mongoose.Schema(
   { collection: "orders" }
 );
 
-OrderSchema.pre("save", function (next) {
+OrderSchema.pre("save", function () {
   this.updatedAt = new Date();
-  next();
 });
 
 let Order = mongoose.models.Order;
