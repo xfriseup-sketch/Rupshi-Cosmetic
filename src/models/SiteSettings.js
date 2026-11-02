@@ -1,25 +1,44 @@
 import mongoose from "mongoose";
 
-/**
- * Global site settings — single-document collection controlling
- * homepage section visibility and content (Phase 8.1).
- */
 const SiteSettingsSchema = new mongoose.Schema(
   {
-    // Singleton key so we always update the same document
+    // Global singleton document
     key: {
       type: String,
       default: "global",
       unique: true,
     },
 
+    // Dynamic Support Widget settings
+    whatsappNumber: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    facebookPageUrl: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    supportEmail: {
+      type: String,
+      default: "",
+      trim: true,
+      lowercase: true,
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+
+    // Existing notice bar settings
     noticeBar: {
       text: {
         type: String,
         default: "✨ Free Express Delivery on orders over ৳1,999! Code: GLOW2026 ✨",
       },
       isActive: { type: Boolean, default: true },
-      bgColor: { type: String, default: "#e11d48" }, // rose-600
+      bgColor: { type: String, default: "#e11d48" },
     },
 
     heroSection: {
@@ -71,11 +90,11 @@ const SiteSettingsSchema = new mongoose.Schema(
           "Limited-time luxury deals on premium skincare & makeup. Glow starts now.",
       },
       buttonText: { type: String, default: "Claim Deal Now" },
-      buttonLink: { type: String, default: "/shop?hotOffer=true" },
-      imageUrl: {
+      buttonLink: {
         type: String,
-        default: "",
+        default: "/shop?hotOffer=true",
       },
+      imageUrl: { type: String, default: "" },
       couponCode: { type: String, default: "" },
       isActive: { type: Boolean, default: true },
     },
@@ -99,13 +118,13 @@ const SiteSettingsSchema = new mongoose.Schema(
   }
 );
 
-let SiteSettings = mongoose.models.SiteSettings;
+const SiteSettings =
+  mongoose.models.SiteSettings ||
+  mongoose.model("SiteSettings", SiteSettingsSchema);
 
-if (!SiteSettings) {
-  SiteSettings = mongoose.model("SiteSettings", SiteSettingsSchema);
-}
-
-/** Default settings used when DB is empty or not configured */
+/**
+ * Existing homepage defaults.
+ */
 export const DEFAULT_SETTINGS = {
   noticeBar: {
     text: "✨ Free Express Delivery on orders over ৳1,999! Code: GLOW2026 ✨",
