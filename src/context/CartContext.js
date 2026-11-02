@@ -62,14 +62,33 @@ export function CartProvider({ children }) {
    * Add a product to the cart. If it already exists, increase quantity by 1.
    */
   const addToCart = useCallback(
-    (product) => {
+    (product, amount = 1) => {
       if (!product?._id) return;
+      const addQty = Math.max(1, Math.floor(Number(amount) || 1));
+      const stock = Number(product.stock);
+      const available = Number.isFinite(stock)
+        ? Math.max(0, Math.floor(stock))
+        : product.inStock === false
+          ? 0
+          : null;
+
+      if (available === 0) {
+        showToast("দুঃখিত, এই প্রোডাক্টের স্টক শেষ।");
+        return;
+      }
+
+      let blocked = false;
       setItems((prev) => {
         const existing = prev.find((item) => item._id === product._id);
+        const current = existing?.quantity || 0;
+        if (available != null && current + addQty > available) {
+          blocked = true;
+          return prev;
+        }
         if (existing) {
           return prev.map((item) =>
             item._id === product._id
-              ? { ...item, quantity: item.quantity + 1 }
+              ? { ...item, quantity: item.quantity + addQty, stock: available ?? item.stock }
               : item
           );
         }
@@ -81,10 +100,16 @@ export function CartProvider({ children }) {
             price: product.price,
             image: product.image,
             category: product.category,
-            quantity: 1,
+            quantity: addQty,
+            stock: available,
           },
         ];
       });
+
+      if (blocked) {
+        showToast(`মাত্র ${available} টি স্টক আছে।`);
+        return;
+      }
       showToast("প্রোডাক্ট কার্টে যোগ হয়েছে!");
     },
     [showToast]
@@ -102,7 +127,15 @@ export function CartProvider({ children }) {
    */
   const updateQuantity = useCallback((productId, quantity) => {
     const qty = Math.max(0, Math.floor(Number(quantity) || 0));
+    let blocked = false;
+    let available = null;
     setItems((prev) => {
+      const current = prev.find((item) => item._id === productId);
+      available = Number.isFinite(Number(current?.stock)) ? Number(current.stock) : null;
+      if (qty > 0 && available != null && qty > available) {
+        blocked = true;
+        return prev;
+      }
       if (qty === 0) {
         return prev.filter((item) => item._id !== productId);
       }
@@ -110,7 +143,8 @@ export function CartProvider({ children }) {
         item._id === productId ? { ...item, quantity: qty } : item
       );
     });
-  }, []);
+    if (blocked) showToast(`মাত্র ${available} টি স্টক আছে।`);
+  }, [showToast]);
 
   /**
    * Empty the whole cart (e.g. after a successful order placement).

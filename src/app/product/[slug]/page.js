@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/mongodb";
-import Product from "@/models/Product";
+import Product, { ensureStockNumbers } from "@/models/Product";
 import ProductActions from "./ProductActions";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +23,7 @@ export default async function ProductPage({ params }) {
     const conn = await dbConnect();
     if (conn) {
       dbOk = true;
+      await ensureStockNumbers(Product);
 
       product = await Product.findOne({ slug: decodeURIComponent(slug) }).lean();
 
@@ -169,9 +170,10 @@ export default async function ProductPage({ params }) {
                   {department === "tech" && "🎮 Tech"}
                 </span>
               )}
-              {product.inStock ? (
+              {Number(product.stock) > 0 ? (
                 <span className="flex items-center gap-1 font-medium text-green-600">
-                  <span className="h-2 w-2 rounded-full bg-green-500" /> স্টকে আছে
+                  <span className="h-2 w-2 rounded-full bg-green-500" />
+                  {Number(product.stock) < 10 ? `মাত্র ${product.stock} টি বাকি` : "স্টকে আছে"}
                 </span>
               ) : (
                 <span className="flex items-center gap-1 font-medium text-red-600">

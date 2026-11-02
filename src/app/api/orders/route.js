@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import dbConnect from "@/lib/mongodb";
 import { dbNotConfiguredResponse } from "@/lib/dbStatus";
 import Order, { ORDER_STATUSES } from "@/models/Order";
-import Product from "@/models/Product";
+import Product, { ensureStockNumbers, stockCount } from "@/models/Product";
 import Coupon, { validateCouponRules } from "@/models/Coupon";
 
 export const dynamic = "force-dynamic";
@@ -63,6 +63,8 @@ export async function POST(request) {
     const conn = await dbConnect();
     if (!conn) return dbNotConfiguredResponse();
 
+    await ensureStockNumbers();
+
     const objectIds = rawItems
       .map((item) => toIdString(item.productId ?? item._id ?? item.id))
       .filter((id) => id && mongoose.Types.ObjectId.isValid(id));
@@ -77,9 +79,15 @@ export async function POST(request) {
     const products = await Product.find({ _id: { $in: objectIds } }).lean();
     const productMap = new Map(products.map((p) => [p._id.toString(), p]));
 
-    const items = [];
+    const merged = new Map();
     for (const raw of rawItems) {
       const id = toIdString(raw.productId ?? raw._id ?? raw.id);
+      const quantity = Math.max(1, Math.floor(Number(raw.quantity) || 1));
+      merged.set(id, (merged.get(id) || 0) + quantity);
+    }
+
+    const items = [];
+    for (const [id, quantity] of merged) {
       const product = productMap.get(id);
 
       if (!product) {
@@ -89,7 +97,14 @@ export async function POST(request) {
         );
       }
 
-      const quantity = Math.max(1, Math.floor(Number(raw.quantity) || 1));
+      const available = stockCount(product);
+      if (available < quantity) {
+        return NextResponse.json(
+          { success: false, message: `দুঃখিত, ${product.name} এর পর্যাপ্ত স্টক নেই।` },
+          { status: 400 }
+        );
+      }
+
       const unitPrice =
         product.discountPrice != null && product.discountPrice < product.price
           ? product.discountPrice
@@ -102,15 +117,53 @@ export async function POST(request) {
       });
     }
 
-    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const decremented = [];
+    try {
+      for (const item of items) {
+        const updated = await Product.findOneAndUpdate(
+          { _id: item.productId, stock: { $gte: item.quantity } },
+          { $inc: { stock: -item.quantity } },
+          { new: true }
+        ).lean();
+        if (!updated) {
+          const error = new Error("INSUFFICIENT_STOCK");
+          error.productName = item.name;
+          throw error;
+        }
+        item.remainingStock = stockCount(updated);
+        decremented.push(item);
+      }
+    } catch (stockError) {
+      for (const item of decremented) {
+        await Product.updateOne({ _id: item.productId }, { $inc: { stock: item.quantity } });
+      }
+      if (stockError?.message === "INSUFFICIENT_STOCK") {
+        return NextResponse.json(
+          { success: false, message: `দুঃখিত, ${stockError.productName} এর পর্যাপ্ত স্টক নেই।` },
+          { status: 400 }
+        );
+      }
+      throw stockError;
+    }
+
+    const orderItems = items.map(({ productId, name, price, quantity }) => ({
+      productId,
+      name,
+      price,
+      quantity,
+    }));
 
     let discountAmount = 0;
     let appliedCouponCode = null;
+    const subtotal = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
     if (couponCode) {
       const coupon = await Coupon.findOne({ code: couponCode }).lean();
       const result = validateCouponRules(coupon, subtotal);
       if (!result.ok) {
+        for (const item of decremented) {
+          await Product.updateOne({ _id: item.productId }, { $inc: { stock: item.quantity } });
+        }
         return NextResponse.json(
           { success: false, message: result.message, errors: { coupon: result.message } },
           { status: 400 }
@@ -122,15 +175,23 @@ export async function POST(request) {
 
     const totalAmount = Math.max(0, subtotal - discountAmount) + SHIPPING_COST;
 
-    const order = await Order.create({
-      customerName,
-      phone,
-      address,
-      items,
-      totalAmount,
-      couponCode: appliedCouponCode,
-      discountAmount,
-    });
+    let order;
+    try {
+      order = await Order.create({
+        customerName,
+        phone,
+        address,
+        items: orderItems,
+        totalAmount,
+        couponCode: appliedCouponCode,
+        discountAmount,
+      });
+    } catch (createError) {
+      for (const item of decremented) {
+        await Product.updateOne({ _id: item.productId }, { $inc: { stock: item.quantity } });
+      }
+      throw createError;
+    }
 
     if (appliedCouponCode) {
       await Coupon.updateOne(
@@ -145,6 +206,11 @@ export async function POST(request) {
         message: "Order placed successfully",
         orderId: order._id.toString(),
         order: serializeOrder(order.toObject()),
+        stock: items.map((item) => ({
+          productId: item.productId,
+          name: item.name,
+          remainingStock: item.remainingStock,
+        })),
       },
       { status: 201 }
     );

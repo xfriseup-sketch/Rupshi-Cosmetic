@@ -45,7 +45,8 @@ function toCardProduct(p) {
     badge,
     rating: 4.8,
     brand: p.brand || "",
-    inStock: p.inStock !== false,
+    stock: Number.isFinite(Number(p.stock)) ? Math.max(0, Math.floor(Number(p.stock))) : 0,
+    inStock: Number(p.stock) > 0,
   };
 }
 
@@ -166,7 +167,7 @@ function ProductCard({ product }) {
         {!product.inStock && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/45">
             <span className="rounded-full bg-white/95 px-4 py-1.5 text-sm font-bold text-rose-600">
-              Out of stock
+              স্টক শেষ
             </span>
           </div>
         )}

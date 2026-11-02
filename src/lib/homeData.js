@@ -1,7 +1,7 @@
 import dbConnect from "@/lib/mongodb";
 import SiteSettings, { DEFAULT_SETTINGS } from "@/models/SiteSettings";
 import Category from "@/models/Category";
-import Product from "@/models/Product";
+import Product, { ensureStockNumbers } from "@/models/Product";
 import Coupon from "@/models/Coupon";
 
 /** Deep-merge settings so partial DB docs never lose nested defaults. */
@@ -90,6 +90,8 @@ async function loadProducts({ filter = {}, limit = 4 } = {}) {
   try {
     const conn = await dbConnect();
     if (!conn) return [];
+
+    await ensureStockNumbers(Product);
 
     const cap = Math.min(Math.max(1, limit), 50);
     const products = await Product.find(filter)

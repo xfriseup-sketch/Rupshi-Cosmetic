@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/mongodb";
 import { dbNotConfiguredResponse } from "@/lib/dbStatus";
-import Product, { ensureUniqueSlug } from "@/models/Product";
+import Product, { ensureUniqueSlug, stockCount } from "@/models/Product";
 
 export const dynamic = "force-dynamic";
 
@@ -38,13 +38,20 @@ async function updateProduct(request, params) {
     const updates = {};
     const allowedFields = [
       "name", "description", "price", "category", "image",
-      "inStock", "brand", "isFeatured", "isNew", "discountPrice",
+      "stock", "brand", "isFeatured", "isNew", "discountPrice",
     ];
     for (const field of allowedFields) {
       if (body[field] !== undefined) updates[field] = body[field];
     }
 
     // Basic sanity checks
+    if (updates.stock !== undefined) {
+      const stock = Number(updates.stock);
+      if (!Number.isFinite(stock) || stock < 0) {
+        return NextResponse.json({ success: false, message: "স্টক ০ বা তার বেশি হতে হবে" }, { status: 400 });
+      }
+      updates.stock = Math.floor(stock);
+    }
     if (updates.price !== undefined && (Number.isNaN(Number(updates.price)) || Number(updates.price) < 0)) {
       return NextResponse.json({ success: false, message: "সঠিক দাম দিন" }, { status: 400 });
     }
@@ -80,10 +87,11 @@ async function updateProduct(request, params) {
       return NextResponse.json({ success: false, message: "প্রোডাক্ট পাওয়া যায়নি" }, { status: 404 });
     }
 
+    const stock = stockCount(product);
     return NextResponse.json({
       success: true,
       message: "প্রোডাক্ট আপডেট হয়েছে",
-      product: { ...product, _id: product._id.toString() },
+      product: { ...product, _id: product._id.toString(), stock, inStock: stock > 0 },
     });
   } catch (error) {
     console.error("PRODUCT UPDATE FAILED:", error);

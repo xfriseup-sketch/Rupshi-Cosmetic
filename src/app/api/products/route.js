@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/mongodb";
 import { dbNotConfiguredResponse } from "@/lib/dbStatus";
-import Product, { ensureUniqueSlug } from "@/models/Product";
+import Product, { ensureUniqueSlug, ensureStockNumbers, stockCount } from "@/models/Product";
 import Category from "@/models/Category";
 
 // Products come from MongoDB and change frequently — always fetch fresh data
@@ -42,7 +42,6 @@ async function parseProductPayload(body) {
   const price = Number(body?.price);
   const category = (body?.category || "").trim();
   const image = (body?.image || "").trim();
-  const inStock = Boolean(body?.inStock);
   const brand = (body?.brand || "").trim();
 
   // Phase 6 flags
@@ -90,13 +89,25 @@ async function parseProductPayload(body) {
     errors.image = "সঠিক ইমেজ URL দিন (http:// বা https:// দিয়ে শুরু)";
   }
 
+  const rawStock = body?.stock;
+  const stock = Number(rawStock);
+  if (
+    rawStock === undefined ||
+    rawStock === null ||
+    rawStock === "" ||
+    !Number.isFinite(stock) ||
+    stock < 0
+  ) {
+    errors.stock = "স্টক ০ বা তার বেশি হতে হবে";
+  }
+
   const data = {
     name,
     description,
     price,
     category,
     image,
-    inStock,
+    stock: Number.isFinite(stock) ? Math.max(0, Math.floor(stock)) : 0,
     brand,
     isFeatured,
     isNew,
@@ -146,9 +157,12 @@ function serialize(product) {
         value: item?.value || "",
       }))
     : [];
+  const stock = stockCount(product);
   return {
     ...product,
     _id: product._id.toString(),
+    stock,
+    inStock: stock > 0,
     department: product.department || "beauty",
     sizes: Array.isArray(product.sizes) ? product.sizes : [],
     colors: Array.isArray(product.colors) ? product.colors : [],
@@ -187,6 +201,7 @@ export async function GET(request) {
     if (!conn) return dbNotConfiguredResponse();
 
     await backfillDepartments();
+    await ensureStockNumbers();
 
     const sp = request.nextUrl.searchParams;
 
@@ -227,8 +242,8 @@ export async function GET(request) {
     if (hotOfferParam === "true") filter.isHotOffer = true;
     else if (hotOfferParam === "false") filter.isHotOffer = false;
 
-    // Phase 7.7: ?inStock=true → only products currently in stock
-    if (sp.get("inStock") === "true") filter.inStock = true;
+    // Only products with quantity left. Legacy boolean `inStock` is no longer queried.
+    if (sp.get("inStock") === "true") filter.stock = { $gt: 0 };
 
     let limit = parseInt(sp.get("limit") || "0", 10);
     if (!Number.isFinite(limit) || limit <= 0) limit = 200;

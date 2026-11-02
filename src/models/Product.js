@@ -30,9 +30,10 @@ const ProductSchema = new mongoose.Schema(
       // URL validation
       match: [/^https?:\/\/.+/i, "Image must be a valid URL"],
     },
-    inStock: {
-      type: Boolean,
-      default: true,
+    stock: {
+      type: Number,
+      default: 0,
+      min: [0, "Stock cannot be negative"],
     },
     // Phase 6 — homepage & shop controls
     isFeatured: {
@@ -104,8 +105,12 @@ const ProductSchema = new mongoose.Schema(
       default: Date.now,
     },
   },
-  { collection: "products" }
+  { collection: "products", toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );
+
+ProductSchema.virtual("inStock").get(function inStockGetter() {
+  return Number(this.stock) > 0;
+});
 
 /**
  * Generate a URL-safe slug from the product name.
@@ -123,6 +128,11 @@ export function generateSlug(text) {
 
 // Prevent overwriting the model on hot reloads / repeated imports
 let Product = mongoose.models.Product;
+
+if (Product && (!Product.schema.paths.stock || Product.schema.paths.inStock?.instance === "Boolean")) {
+  mongoose.deleteModel("Product");
+  Product = undefined;
+}
 
 if (!Product) {
   Product = mongoose.model("Product", ProductSchema);
@@ -177,6 +187,33 @@ export async function ensureUniqueSlug(ProductModel, excludeId, name) {
     candidate = `${base}-${i}`;
   }
   return candidate;
+}
+
+/** Numeric stock. Legacy docs without `stock` are not sellable until backfilled. */
+export function stockCount(product) {
+  const value = Number(product?.stock);
+  if (Number.isFinite(value)) return Math.max(0, Math.floor(value));
+  return 0;
+}
+
+/**
+ * Products created before quantity tracking only had an `inStock` boolean.
+ * Out-of-stock stays 0. Previously available products get 100 so the shop
+ * does not go empty; admin should replace that with the real count.
+ */
+export async function ensureStockNumbers(ProductModel = Product) {
+  const missing = await ProductModel.countDocuments({
+    $or: [{ stock: { $exists: false } }, { stock: null }],
+  });
+  if (!missing) return;
+  await ProductModel.updateMany(
+    { $or: [{ stock: { $exists: false } }, { stock: null }], inStock: false },
+    { $set: { stock: 0 } }
+  );
+  await ProductModel.updateMany(
+    { $or: [{ stock: { $exists: false } }, { stock: null }], inStock: { $ne: false } },
+    { $set: { stock: 100 } }
+  );
 }
 
 export default Product;

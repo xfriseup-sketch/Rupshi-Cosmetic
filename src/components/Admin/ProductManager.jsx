@@ -54,7 +54,7 @@ const emptyForm = {
   category: "",
   brand: "",
   image: "",
-  inStock: true,
+  stock: 0,
   isFeatured: false,
   isNew: false,
   isHotOffer: false,
@@ -94,7 +94,7 @@ function normalizePayload(form) {
     category: form.category,
     brand: form.brand.trim(),
     image: form.image.trim(),
-    inStock: Boolean(form.inStock),
+    stock: Math.max(0, Math.floor(Number(form.stock) || 0)),
     isFeatured: Boolean(form.isFeatured),
     isNew: Boolean(form.isNew),
     isHotOffer: Boolean(form.isHotOffer),
@@ -160,7 +160,7 @@ export default function ProductManager() {
       category: product.category || "",
       brand: product.brand || "",
       image: product.image || "",
-      inStock: product.inStock !== false,
+      stock: Number.isFinite(Number(product.stock)) ? Math.max(0, Math.floor(Number(product.stock))) : 0,
       isFeatured: Boolean(product.isFeatured),
       isNew: Boolean(product.isNew),
       isHotOffer: Boolean(product.isHotOffer),
@@ -357,15 +357,19 @@ export default function ProductManager() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                        p.inStock
-                          ? "bg-emerald-50 text-emerald-700"
-                          : "bg-red-50 text-red-600"
-                      }`}
-                    >
-                      {p.inStock ? "In stock" : "Out of stock"}
-                    </span>
+                    {Number(p.stock) <= 0 ? (
+                      <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">
+                        Out of Stock
+                      </span>
+                    ) : Number(p.stock) < 5 ? (
+                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                        Low stock · {p.stock}
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                        {p.stock} in stock
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
@@ -649,8 +653,20 @@ export default function ProductManager() {
                   </div>
                 )}
 
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">স্টক পরিমাণ</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.stock}
+                    onChange={(e) => setForm((p) => ({ ...p, stock: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-400/30"
+                  />
+                  {fieldErrors.stock && <p className="mt-1 text-xs text-red-600">{fieldErrors.stock}</p>}
+                </div>
+
                 <div className="sm:col-span-2 flex flex-wrap gap-5 border-t border-gray-100 pt-4">
-                  <Toggle checked={form.inStock} onChange={(v) => setForm((p) => ({ ...p, inStock: v }))} label="In Stock" />
                   <Toggle checked={form.isFeatured} onChange={(v) => setForm((p) => ({ ...p, isFeatured: v }))} label="Featured" />
                   <Toggle checked={form.isHotOffer} onChange={(v) => setForm((p) => ({ ...p, isHotOffer: v }))} label="Hot Offer" />
                   <Toggle checked={form.isNew} onChange={(v) => setForm((p) => ({ ...p, isNew: v }))} label="New Arrival" />

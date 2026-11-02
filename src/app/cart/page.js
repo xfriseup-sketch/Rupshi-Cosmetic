@@ -154,10 +154,11 @@ export default function CartPage() {
                         <button
                           type="button"
                           aria-label="বাড়ান"
+                          disabled={Number.isFinite(Number(item.stock)) && item.quantity >= Number(item.stock)}
                           onClick={() =>
                             updateQuantity(item._id, item.quantity + 1)
                           }
-                          className="flex h-9 w-9 items-center justify-center rounded-full text-lg font-bold text-[#db2777] transition-colors hover:bg-pink-200"
+                          className="flex h-9 w-9 items-center justify-center rounded-full text-lg font-bold text-[#db2777] transition-colors hover:bg-pink-200 disabled:cursor-not-allowed disabled:text-gray-300"
                         >
                           +
                         </button>

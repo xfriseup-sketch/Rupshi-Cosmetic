@@ -786,7 +786,7 @@ function ProductCard({ product, onAdd }) {
         {!product.inStock && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50">
             <span className="rounded-full bg-white/90 px-4 py-1.5 text-sm font-bold text-red-600">
-              স্টক নেই
+              স্টক শেষ
             </span>
           </div>
         )}
@@ -831,6 +831,9 @@ function ProductCard({ product, onAdd }) {
             </span>
           )}
         </div>
+        {Number(product.stock) > 0 && Number(product.stock) < 10 && (
+          <p className="mt-1 text-xs font-medium text-amber-600">মাত্র {product.stock} টি বাকি</p>
+        )}
 
         {/* Mobile add button (Quick Add hover is desktop-only) */}
         <button

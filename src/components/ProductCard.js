@@ -60,7 +60,7 @@ export default function ProductCard({ product }) {
           {!product.inStock && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/45 backdrop-blur-[2px]">
               <span className="rounded-full bg-white/95 px-4 py-1.5 text-sm font-bold text-rose-600 shadow">
-                স্টক নেই
+                স্টক শেষ
               </span>
             </div>
           )}
@@ -107,6 +107,9 @@ export default function ProductCard({ product }) {
             </span>
           )}
         </div>
+        {Number(product.stock) > 0 && Number(product.stock) < 10 && (
+          <p className="mt-2 text-xs font-medium text-amber-600">মাত্র {product.stock} টি বাকি</p>
+        )}
       </div>
     </div>
   );
