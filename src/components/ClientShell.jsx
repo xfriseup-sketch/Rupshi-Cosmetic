@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import GlobalFooter from "@/components/Footer";
+import SupportWidget from "@/components/SupportWidget";
 
 /**
  * Wraps store pages with Navbar + Footer.
@@ -21,6 +22,7 @@ export default function ClientShell({ children }) {
       <Navbar />
       <main className="flex-1">{children}</main>
       <GlobalFooter />
+      <SupportWidget />
     </div>
   );
 }
