@@ -33,7 +33,8 @@ export default function SupportManager() {
   const [notice, setNotice] = useState(null);
   const [keywords, setKeywords] = useState("");
   const [answer, setAnswer] = useState("");
-  const [editingId, setEditingId] = useState(null);\n  const [ruleActive, setRuleActive] = useState(true);
+  const [editingId, setEditingId] = useState(null);
+  const [ruleActive, setRuleActive] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -243,7 +244,8 @@ export default function SupportManager() {
               <span className="mb-1.5 block text-sm font-medium text-slate-700">Bot answer</span>
               <textarea className={inputClass} rows={6} value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="Write the answer Rupshi Bot should send…" />
             </label>
-            <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={ruleActive} onChange={(e) => setRuleActive(e.target.checked)} className="h-4 w-4 accent-pink-600" /> Rule is active and available to customers</label>\n            <button type="submit" className={`${buttonPrimary} w-full`} disabled={savingRule}>{savingRule ? <Loader2 size={16} className="animate-spin" /> : editingId ? <Save size={16} /> : <Plus size={16} />}{editingId ? "Update Rule" : "Add Rule"}</button>
+            <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={ruleActive} onChange={(e) => setRuleActive(e.target.checked)} className="h-4 w-4 accent-pink-600" /> Rule is active and available to customers</label>
+            <button type="submit" className={`${buttonPrimary} w-full`} disabled={savingRule}>{savingRule ? <Loader2 size={16} className="animate-spin" /> : editingId ? <Save size={16} /> : <Plus size={16} />}{editingId ? "Update Rule" : "Add Rule"}</button>
           </form>
 
           <section className="space-y-3">
