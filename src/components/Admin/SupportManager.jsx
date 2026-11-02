@@ -130,6 +130,7 @@ export default function SupportManager() {
       setNotice({ type: "error", text: "Please enter at least one keyword and an answer." });
       return;
     }
+    const wasEditing = Boolean(editingId);
     setSavingRule(true);
     setNotice(null);
     try {
@@ -144,7 +145,7 @@ export default function SupportManager() {
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) throw new Error(getError(data, "Failed to save chatbot rule"));
       resetRuleForm();
-      setNotice({ type: "success", text: editingId ? "Rule updated successfully." : "New rule added successfully." });
+      setNotice({ type: "success", text: wasEditing ? "Rule updated successfully." : "New rule added successfully." });
       await loadRules();
     } catch (error) {
       setNotice({ type: "error", text: error.message });
