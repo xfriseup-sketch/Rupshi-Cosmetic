@@ -5,6 +5,7 @@ import { dbNotConfiguredResponse } from "@/lib/dbStatus";
 import Order, { ORDER_STATUSES } from "@/models/Order";
 import Product, { ensureStockNumbers, stockCount } from "@/models/Product";
 import Coupon, { validateCouponRules } from "@/models/Coupon";
+import { notifyAdminOfOrder } from "@/lib/orderEmail";
 
 export const dynamic = "force-dynamic";
 
@@ -198,6 +199,12 @@ export async function POST(request) {
         { code: appliedCouponCode },
         { $inc: { usedCount: 1 } }
       );
+    }
+
+    try {
+      await notifyAdminOfOrder(order, request.nextUrl.origin);
+    } catch (mailError) {
+      console.error("Admin order email failed:", mailError);
     }
 
     return NextResponse.json(
