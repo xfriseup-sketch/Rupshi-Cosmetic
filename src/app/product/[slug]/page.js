@@ -123,6 +123,7 @@ export default async function ProductPage({ params }) {
 
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-12">
           {/* Left: image */}
+          <div>
           <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl border border-pink-100 bg-pink-50 shadow-sm">
             {product.image ? (
               <Image
@@ -146,6 +147,16 @@ export default async function ProductPage({ params }) {
                 SALE -{discountPct}%
               </span>
             )}
+          </div>
+          {Array.isArray(product.images) && product.images.filter(Boolean).length > 0 && (
+            <div className="mt-3 grid grid-cols-4 gap-2">
+              {product.images.filter(Boolean).slice(0, 4).map((src) => (
+                <div key={src} className="relative aspect-square overflow-hidden rounded-xl border border-pink-100 bg-pink-50">
+                  <Image src={src} alt="" fill sizes="120px" className="object-cover" />
+                </div>
+              ))}
+            </div>
+          )}
           </div>
 
           {/* Right: details */}

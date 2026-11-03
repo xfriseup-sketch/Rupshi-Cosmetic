@@ -49,5 +49,7 @@ export async function middleware(request) {
 }
 
 export const config = {
-  matcher: ["/admin", "/admin/:path*", "/api/:path*"],
+  // /api/upload is excluded. Edge middleware corrupts multipart bodies, so the
+  // file never reaches the route. Auth is checked inside the upload route.
+  matcher: ["/admin", "/admin/:path*", "/api/((?!upload).*)"],
 };

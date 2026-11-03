@@ -27,8 +27,11 @@ const ProductSchema = new mongoose.Schema(
     },
     image: {
       type: String,
-      // URL validation
       match: [/^https?:\/\/.+/i, "Image must be a valid URL"],
+    },
+    images: {
+      type: [String],
+      default: [],
     },
     stock: {
       type: Number,
@@ -146,7 +149,8 @@ if (!Product) {
   !Product.schema.paths.department ||
   !Product.schema.paths.sizes ||
   !Product.schema.paths.colors ||
-  !Product.schema.paths.specs
+  !Product.schema.paths.specs ||
+  !Product.schema.paths.images
 ) {
   // An older compiled model (e.g. from a previous hot reload) may lack the new
   // Phase 6/7 paths — add them so queries/validations keep working.
@@ -168,6 +172,7 @@ if (!Product) {
       default: [],
     };
   }
+  if (!Product.schema.paths.images) additions.images = { type: [String], default: [] };
   Product.schema.add(additions);
 }
 

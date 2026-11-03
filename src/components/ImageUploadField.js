@@ -15,7 +15,7 @@ import Image from "next/image";
  * - Shows a spinner during upload and clear success/error messages in
  *   Bengali. Gracefully handles Cloudinary not being configured (503).
  */
-export default function ImageUploadField({ value, onChange, error }) {
+export default function ImageUploadField({ value, onChange, error, label = "প্রোডাক্টের ছবি" }) {
   const [file, setFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null); // object URL for local preview
   const [uploading, setUploading] = useState(false);
@@ -52,7 +52,11 @@ export default function ImageUploadField({ value, onChange, error }) {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
       const data = await res.json().catch(() => null);
 
       if (res.ok && data?.success && data.url) {
@@ -79,9 +83,7 @@ export default function ImageUploadField({ value, onChange, error }) {
 
   return (
     <div className="sm:col-span-2">
-      <label className="block text-sm font-medium text-gray-700 mb-1">
-        প্রোডাক্টের ছবি
-      </label>
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
 
       {/* Image URL input (also filled automatically after upload) */}
       <input
@@ -125,14 +127,13 @@ export default function ImageUploadField({ value, onChange, error }) {
       {/* Preview of the selected image (before upload) or current image */}
       {(previewUrl || value) && (
         <div className="mt-3 relative h-36 w-36 overflow-hidden rounded-xl border border-pink-200 bg-pink-50">
-          <Image
-            src={previewUrl || value}
-            alt="ছবির প্রিভিউ"
-            fill
-            unoptimized
-            sizes="144px"
-            className="object-cover"
-          />
+          {previewUrl ? (
+            // next/image rejects blob: previews and crashes the form before upload.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={previewUrl} alt="ছবির প্রিভিউ" className="h-full w-full object-cover" />
+          ) : (
+            <Image src={value} alt="ছবির প্রিভিউ" fill unoptimized sizes="144px" className="object-cover" />
+          )}
           {previewUrl && (
             <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[10px] text-center py-0.5">
               প্রিভিউ (আপলোডের আগে)

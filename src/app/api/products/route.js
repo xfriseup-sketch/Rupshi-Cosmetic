@@ -89,6 +89,17 @@ async function parseProductPayload(body) {
     errors.image = "সঠিক ইমেজ URL দিন (http:// বা https:// দিয়ে শুরু)";
   }
 
+  let images = [];
+  if (body?.images !== undefined) {
+    if (!Array.isArray(body.images)) {
+      errors.images = "অতিরিক্ত ছবি অবশ্যই URL এর অ্যারে হতে হবে";
+    } else {
+      images = [...new Set(
+        body.images.map((item) => String(item || "").trim()).filter((item) => /^https?:\/\/.+/i.test(item))
+      )].slice(0, 4);
+    }
+  }
+
   const rawStock = body?.stock;
   const stock = Number(rawStock);
   if (
@@ -114,6 +125,7 @@ async function parseProductPayload(body) {
     isHotOffer,
     discountPrice,
   };
+  if (body?.images !== undefined && !errors.images) data.images = images;
 
   // Optional on update so an older admin form does not wipe these fields.
   if (body?.department !== undefined && body?.department !== null && String(body.department).trim() !== "") {
@@ -164,6 +176,8 @@ function serialize(product) {
     stock,
     inStock: stock > 0,
     department: product.department || "beauty",
+    image: product.image || "",
+    images: Array.isArray(product.images) ? product.images.filter(Boolean).slice(0, 4) : [],
     sizes: Array.isArray(product.sizes) ? product.sizes : [],
     colors: Array.isArray(product.colors) ? product.colors : [],
     specs,

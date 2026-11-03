@@ -54,6 +54,7 @@ const emptyForm = {
   category: "",
   brand: "",
   image: "",
+  images: ["", "", "", ""],
   stock: 0,
   isFeatured: false,
   isNew: false,
@@ -94,6 +95,10 @@ function normalizePayload(form) {
     category: form.category,
     brand: form.brand.trim(),
     image: form.image.trim(),
+    images: (Array.isArray(form.images) ? form.images : [])
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+      .slice(0, 4),
     stock: Math.max(0, Math.floor(Number(form.stock) || 0)),
     isFeatured: Boolean(form.isFeatured),
     isNew: Boolean(form.isNew),
@@ -160,6 +165,7 @@ export default function ProductManager() {
       category: product.category || "",
       brand: product.brand || "",
       image: product.image || "",
+      images: [0, 1, 2, 3].map((index) => (Array.isArray(product.images) ? product.images[index] || "" : "")),
       stock: Number.isFinite(Number(product.stock)) ? Math.max(0, Math.floor(Number(product.stock))) : 0,
       isFeatured: Boolean(product.isFeatured),
       isNew: Boolean(product.isNew),
@@ -526,10 +532,25 @@ export default function ProductManager() {
 
                 <div className="sm:col-span-2">
                   <ImageUploadField
+                    label="প্রধান ছবি *"
                     value={form.image}
                     onChange={(url) => setForm((p) => ({ ...p, image: url }))}
                     error={fieldErrors.image}
                   />
+                  {[0, 1, 2, 3].map((index) => (
+                    <ImageUploadField
+                      key={index}
+                      label={`অতিরিক্ত ছবি ${index + 1} (ঐচ্ছিক)`}
+                      value={(form.images || [])[index] || ""}
+                      onChange={(url) =>
+                        setForm((prev) => {
+                          const images = [0, 1, 2, 3].map((i) => (prev.images || [])[i] || "");
+                          images[index] = url;
+                          return { ...prev, images };
+                        })
+                      }
+                    />
+                  ))}
                 </div>
 
                 <div>
